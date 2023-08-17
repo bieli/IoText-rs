@@ -95,3 +95,25 @@ iotext_data_row.timestamp_mut: IotextDataRow {
 }
 
 ```
+
+
+## Run unit tests
+
+```bash
+
+$ cargo test
+
+    Finished test [unoptimized + debuginfo] target(s) in 0.42s
+     Running unittests src/main.rs (target/debug/deps/iotext_rs-a68ae8edfd0a7e63)
+
+running 5 tests
+test tests::test_extract_metric_value_type_bool_false ... ok
+test tests::test_extract_metric_value_type_bool_true ... ok
+test tests::test_extract_metric_value_type_integer ... ok
+test tests::test_extract_metric_value_type_decimal ... ok
+test tests::test_extract_metric_value_type_text ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+```
