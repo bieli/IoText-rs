@@ -2,7 +2,7 @@
 RUST implementation of IoText data protocol - specification: https://github.com/bieli/IoText-data-protocol
 
 
-# Development STDOUT
+# Development STDOUT (parsing IoText data protocol from String)
 
 ```bash
 $ cargo b
@@ -11,7 +11,7 @@ $ cargo r
      Running `target/debug/iotext-rs`
 part: t|3900237526042
 item_part: ["t", "3900237526042"]
-                        TIME_UNIX_MILIS: TimeUnixMilis(3900237526042)
+                        TIMESTAMP_MILIS: TimeUnixMilis(3900237526042)
                 context: 3900237526042
 part: d|device_name_001
 item_part: ["d", "device_name_001"]
@@ -47,5 +47,51 @@ item_part: ["m", "wind_speed=d:1234.5678"]
         metric_parts: ["wind_speed", "d:1234.5678"]
                 metric_parts_values: ["d", "1234.5678"]
                         DecimalItemType: DecimalItemType(1234.5678)
+iotext_data_row.timestamp_mut: IotextDataRow {
+    timestamp: Item {
+        value: TimeUnixMilis(
+            3900237526042,
+        ),
+    },
+    device_id: Item {
+        value: DeviceId(
+            "device_name_001",
+        ),
+    },
+    metrics: Some(
+        [
+            MetricDataItem {
+                name: "val_water_level1",
+                value: IntegerItemType(
+                    42,
+                ),
+            },
+            MetricDataItem {
+                name: "light_on",
+                value: BoolItemType(
+                    true,
+                ),
+            },
+            MetricDataItem {
+                name: "bulb_on",
+                value: BoolItemType(
+                    false,
+                ),
+            },
+            MetricDataItem {
+                name: "msg_machine_01",
+                value: TextItemType(
+                    "hello",
+                ),
+            },
+            MetricDataItem {
+                name: "wind_speed",
+                value: DecimalItemType(
+                    1234.5678,
+                ),
+            },
+        ],
+    ),
+}
 
 ```
