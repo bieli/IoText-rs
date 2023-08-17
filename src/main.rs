@@ -22,7 +22,7 @@ impl ItemTypes {
     //TODO: const HEALTH_CHECK: &str = "h";
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum MetricValueType {
     IntegerItemType(i64),
     BoolItemType(bool),
@@ -36,7 +36,7 @@ impl Default for MetricValueType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum ItemTypeEnum {
     TimeUnixMilis(u64),
     DeviceId(String),
@@ -53,7 +53,7 @@ struct MetricDataItem {
     name: String,
     value: MetricValueType,
 }
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 struct Item {
     value: ItemTypeEnum,
 }
@@ -294,3 +294,74 @@ iotext_data_row.timestamp_mut: IotextDataRow {
 
 
 */
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    /*
+    #[test]
+    fn test_parse_iotext_string() {
+        use crate::ItemTypeEnum::TimeUnixMilis;
+        use crate::Item;
+
+        const MSG_EXAMPLE: &str = "t|3900237526042,d|device_name_001,m|val_water_level1=i:42,m|light_on=b:1,m|bulb_on=b:0,m|msg_machine_01=t:hello,m|wind_speed=d:1234.5678";
+
+        let iotext_data_row = parse_iotext_str(MSG_EXAMPLE);
+
+        assert_eq!(iotext_data_row.timestamp.value, TimeUnixMilis(3900237526042));
+    }
+    */
+
+    #[test]
+    fn test_extract_metric_value_type_integer() {
+        const METRIC_DATA_TYPE: &str = "i";
+        const METRIC_DATA_VALUE: &str = "42";
+
+        let result = extract_metric_value_type(METRIC_DATA_TYPE, METRIC_DATA_VALUE);
+
+        assert_eq!(result, MetricValueType::IntegerItemType(42));
+    }
+
+    #[test]
+    fn test_extract_metric_value_type_decimal() {
+        const METRIC_DATA_TYPE: &str = "d";
+        const METRIC_DATA_VALUE: &str = "42.123";
+
+        let result = extract_metric_value_type(METRIC_DATA_TYPE, METRIC_DATA_VALUE);
+
+        assert_eq!(result, MetricValueType::DecimalItemType(Decimal::from_str(METRIC_DATA_VALUE).unwrap()));
+    }
+
+    #[test]
+    fn test_extract_metric_value_type_bool_true() {
+        const METRIC_DATA_TYPE: &str = "b";
+        const METRIC_DATA_VALUE: &str = "1";
+
+        let result = extract_metric_value_type(METRIC_DATA_TYPE, METRIC_DATA_VALUE);
+
+        assert_eq!(result, MetricValueType::BoolItemType(true));
+    }
+
+    #[test]
+    fn test_extract_metric_value_type_bool_false() {
+        const METRIC_DATA_TYPE: &str = "b";
+        const METRIC_DATA_VALUE: &str = "0";
+
+        let result = extract_metric_value_type(METRIC_DATA_TYPE, METRIC_DATA_VALUE);
+
+        assert_eq!(result, MetricValueType::BoolItemType(false));
+    }
+
+    #[test]
+    fn test_extract_metric_value_type_text() {
+        const METRIC_DATA_TYPE: &str = "t";
+        const METRIC_DATA_VALUE: &str = "hello";
+
+        let result = extract_metric_value_type(METRIC_DATA_TYPE, METRIC_DATA_VALUE);
+
+        assert_eq!(result, MetricValueType::TextItemType(METRIC_DATA_VALUE.to_string()));
+    }
+}
+
