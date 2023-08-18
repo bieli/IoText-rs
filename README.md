@@ -9,44 +9,6 @@ $ cargo b
 $ cargo r
     Finished dev [unoptimized + debuginfo] target(s) in 0.02s
      Running `target/debug/iotext-rs`
-part: t|3900237526042
-item_part: ["t", "3900237526042"]
-                        TIMESTAMP_MILIS: TimeUnixMilis(3900237526042)
-                context: 3900237526042
-part: d|device_name_001
-item_part: ["d", "device_name_001"]
-                        DEVICE_ID: DeviceId("device_name_001")
-                context: device_name_001
-part: m|val_water_level1=i:42
-item_part: ["m", "val_water_level1=i:42"]
-        metric: val_water_level1=i:42
-        metric_parts: ["val_water_level1", "i:42"]
-                metric_parts_values: ["i", "42"]
-                        IntegerItemType: IntegerItemType(42)
-part: m|light_on=b:1
-item_part: ["m", "light_on=b:1"]
-        metric: light_on=b:1
-        metric_parts: ["light_on", "b:1"]
-                metric_parts_values: ["b", "1"]
-                        BoolItemType: BoolItemType(true)
-part: m|bulb_on=b:0
-item_part: ["m", "bulb_on=b:0"]
-        metric: bulb_on=b:0
-        metric_parts: ["bulb_on", "b:0"]
-                metric_parts_values: ["b", "0"]
-                        BoolItemType: BoolItemType(false)
-part: m|msg_machine_01=t:hello
-item_part: ["m", "msg_machine_01=t:hello"]
-        metric: msg_machine_01=t:hello
-        metric_parts: ["msg_machine_01", "t:hello"]
-                metric_parts_values: ["t", "hello"]
-                        BoolItemType: TextItemType("hello")
-part: m|wind_speed=d:1234.5678
-item_part: ["m", "wind_speed=d:1234.5678"]
-        metric: wind_speed=d:1234.5678
-        metric_parts: ["wind_speed", "d:1234.5678"]
-                metric_parts_values: ["d", "1234.5678"]
-                        DecimalItemType: DecimalItemType(1234.5678)
 iotext_data_row.timestamp_mut: IotextDataRow {
     timestamp: Item {
         value: TimeUnixMilis(
@@ -61,39 +23,68 @@ iotext_data_row.timestamp_mut: IotextDataRow {
     metrics: Some(
         [
             MetricDataItem {
-                name: "val_water_level1",
+                name: "val_water_001",
                 value: IntegerItemType(
-                    42,
+                    1234,
                 ),
             },
             MetricDataItem {
-                name: "light_on",
+                name: "val_water_002",
+                value: IntegerItemType(
+                    15,
+                ),
+            },
+            MetricDataItem {
+                name: "bulb_state",
                 value: BoolItemType(
                     true,
                 ),
             },
             MetricDataItem {
-                name: "bulb_on",
+                name: "connector_state",
                 value: BoolItemType(
                     false,
                 ),
             },
             MetricDataItem {
-                name: "msg_machine_01",
-                value: TextItemType(
-                    "hello",
+                name: "temp_01",
+                value: DecimalItemType(
+                    34.4,
                 ),
             },
             MetricDataItem {
-                name: "wind_speed",
+                name: "temp_02",
                 value: DecimalItemType(
-                    1234.5678,
+                    36.4,
+                ),
+            },
+            MetricDataItem {
+                name: "temp_03",
+                value: DecimalItemType(
+                    10.4,
+                ),
+            },
+            MetricDataItem {
+                name: "pwr",
+                value: DecimalItemType(
+                    12.231,
+                ),
+            },
+            MetricDataItem {
+                name: "current",
+                value: DecimalItemType(
+                    1.429,
+                ),
+            },
+            MetricDataItem {
+                name: "current_battery",
+                value: DecimalItemType(
+                    1.548,
                 ),
             },
         ],
     ),
 }
-
 ```
 
 
@@ -114,6 +105,25 @@ test tests::test_extract_metric_value_type_decimal ... ok
 test tests::test_extract_metric_value_type_text ... ok
 
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+```
+
+## Run benchmark tests
+
+```bash
+
+$ cargo test
+
+...
+
+extract_metric_value_type                                                                             
+                        time:   [9.3776 ns 9.5541 ns 9.7505 ns]
+                        change: [-3.3488% -0.2465% +3.2389%] (p = 0.89 > 0.05)
+                        No change in performance detected.
+Found 8 outliers among 100 measurements (8.00%)
+  6 (6.00%) high mild
+  2 (2.00%) high severe
 
 
 ```
