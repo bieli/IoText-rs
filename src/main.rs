@@ -107,21 +107,6 @@ iotext_data_row.timestamp_mut: IotextDataRow {
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
-    //use test::Bencher;
-
-    /*
-    #[test]
-    fn test_parse_iotext_string() {
-        use crate::ItemTypeEnum::TimeUnixMilis;
-        use crate::Item;
-
-        const MSG_EXAMPLE: &str = "t|3900237526042,d|device_name_001,m|val_water_level1=i:42,m|light_on=b:1,m|bulb_on=b:0,m|msg_machine_01=t:hello,m|wind_speed=d:1234.5678";
-
-        let iotext_data_row = parse_iotext_str(MSG_EXAMPLE);
-
-        assert_eq!(iotext_data_row.timestamp.value, TimeUnixMilis(3900237526042));
-    }
-    */
 
     #[test]
     fn test_extract_metric_value_type_integer() {
@@ -132,20 +117,6 @@ mod tests {
 
         assert_eq!(result, MetricValueType::IntegerItemType(42));
     }
-
-    /*
-    #[bench]
-    fn bench_extract_metric_value_type_integer(b: &mut Bencher) {
-        const METRIC_DATA_TYPE: &str = "i";
-        const METRIC_DATA_VALUE: &str = "42";
-
-        b.iter(|| {
-            for i in 1..100 {
-                let result = extract_metric_value_type(METRIC_DATA_TYPE, METRIC_DATA_VALUE);
-            }
-        });
-    }
-    */
 
     #[test]
     fn test_extract_metric_value_type_decimal() {
