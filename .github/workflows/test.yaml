@@ -1,8 +1,4 @@
-on:
-  pull_request:
-  push:
-    branches:
-      - main
+on: [push, pull_request]
 
 name: Test with Code Coverage
 
@@ -17,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
           profile: minimal
           toolchain: nightly
