@@ -117,13 +117,9 @@ $ cargo bench
 
 ...
 
-extract_metric_value_type                                                                             
-                        time:   [9.3776 ns 9.5541 ns 9.7505 ns]
-                        change: [-3.3488% -0.2465% +3.2389%] (p = 0.89 > 0.05)
-                        No change in performance detected.
-Found 8 outliers among 100 measurements (8.00%)
-  6 (6.00%) high mild
-  2 (2.00%) high severe
-
+parse_iotext_str        time:   [1.9652 µs 2.0015 µs 2.0388 µs]                              
+Found 19 outliers among 100 measurements (19.00%)
+  8 (8.00%) high mild
+  11 (11.00%) high severe
 
 ```
