@@ -38,10 +38,21 @@ impl Default for MetricValueType {
     }
 }
 
+use std::fmt::Display;
+
 #[derive(Debug, PartialEq)]
 pub enum ItemTypeEnum {
     TimeUnixMilis(u64),
     DeviceId(String),
+}
+
+impl Display for ItemTypeEnum {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ItemTypeEnum::TimeUnixMilis(value) => write!(f, "t|{:?}", value),
+            ItemTypeEnum::DeviceId(value) => write!(f, "d|{}", value),
+        }
+    }
 }
 
 impl Default for ItemTypeEnum {
@@ -69,17 +80,15 @@ pub struct IotextDataRow {
 
 impl IotextDataRow {
     // Immutable access.
-    /*
     fn get_timestamp(&self) -> &ItemTypeEnum {
         &self.timestamp.value
     }
-    fn get_device_id(&self) -> &ItemTypeEnum {
-        &self.device_id.value
+    fn get_device_id(&self) -> String {
+        self.device_id.value.to_string()
     }
     fn get_metrics(&self) -> &Option<Vec<MetricDataItem>> {
         &self.metrics
     }
-    */
 
     // Mutable access.
     pub fn timestamp_mut(&mut self) -> &mut Item {
@@ -207,4 +216,91 @@ pub fn parse_iotext_str(data_row: &str) -> IotextDataRow {
         }
     }
     iotext_data_row
+}
+
+pub fn dump_iotext_to_str(iotext_data_row: &IotextDataRow) -> String {
+    // TODO: add dump for metrics values
+    format!(
+        "{},{}",
+        iotext_data_row.get_timestamp(),
+        iotext_data_row.get_device_id()
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    #[test]
+    fn test_extract_metric_value_type_integer() {
+        const METRIC_DATA_TYPE: &str = "i";
+        const METRIC_DATA_VALUE: &str = "42";
+
+        let result = extract_metric_value_type(METRIC_DATA_TYPE, METRIC_DATA_VALUE);
+
+        assert_eq!(result, MetricValueType::IntegerItemType(42));
+    }
+
+    #[test]
+    fn test_extract_metric_value_type_decimal() {
+        const METRIC_DATA_TYPE: &str = "d";
+        const METRIC_DATA_VALUE: &str = "42.123";
+
+        let result = extract_metric_value_type(METRIC_DATA_TYPE, METRIC_DATA_VALUE);
+
+        assert_eq!(
+            result,
+            MetricValueType::DecimalItemType(Decimal::from_str(METRIC_DATA_VALUE).unwrap())
+        );
+    }
+
+    #[test]
+    fn test_extract_metric_value_type_bool_true() {
+        const METRIC_DATA_TYPE: &str = "b";
+        const METRIC_DATA_VALUE: &str = "1";
+
+        let result = extract_metric_value_type(METRIC_DATA_TYPE, METRIC_DATA_VALUE);
+
+        assert_eq!(result, MetricValueType::BoolItemType(true));
+    }
+
+    #[test]
+    fn test_extract_metric_value_type_bool_false() {
+        const METRIC_DATA_TYPE: &str = "b";
+        const METRIC_DATA_VALUE: &str = "0";
+
+        let result = extract_metric_value_type(METRIC_DATA_TYPE, METRIC_DATA_VALUE);
+
+        assert_eq!(result, MetricValueType::BoolItemType(false));
+    }
+
+    #[test]
+    fn test_extract_metric_value_type_text() {
+        const METRIC_DATA_TYPE: &str = "t";
+        const METRIC_DATA_VALUE: &str = "hello";
+
+        let result = extract_metric_value_type(METRIC_DATA_TYPE, METRIC_DATA_VALUE);
+
+        assert_eq!(
+            result,
+            MetricValueType::TextItemType(METRIC_DATA_VALUE.to_string())
+        );
+    }
+
+    #[test]
+    fn test_dump_iotext_to_str_without_measurements() {
+        let expected: String = "t|3900237526042,d|device_name_001".to_string();
+        let mut iotext_data_row = IotextDataRow::default();
+
+        let s = iotext_data_row.timestamp_mut();
+        s.value = ItemTypeEnum::TimeUnixMilis(3900237526042);
+
+        let s = iotext_data_row.device_id_mut();
+        s.value = ItemTypeEnum::DeviceId(String::from("device_name_001".to_string()));
+
+        let result: String = dump_iotext_to_str(&iotext_data_row);
+
+        assert_eq!(result, expected);
+    }
 }
