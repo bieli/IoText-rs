@@ -65,4 +65,7 @@ iotext_data_row.timestamp_mut: IotextDataRow {
 }
 
 str_from_iotext_data: t|3900237526042,d|device_name_001
+
+
+
 */

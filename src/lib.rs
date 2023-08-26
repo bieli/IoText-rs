@@ -2,9 +2,15 @@ use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 use std::*;
 
+extern crate serde;
+extern crate serde_json;
+
+use serde::{Deserialize, Serialize};
+
+
 pub const MSG_EXAMPLE: &str = "t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|bulb_state=b:1,m|connector_state=b:0,m|temp_01=d:34.4,m|temp_02=d:36.4,m|temp_03=d:10.4,m|pwr=d:12.231,m|current=d:1.429,m|current_battery=d:1.548";
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct MetricDataTypes {}
 
 impl MetricDataTypes {
@@ -14,7 +20,7 @@ impl MetricDataTypes {
     pub const TEXT: &str = "t";
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct ItemTypes {}
 
 impl ItemTypes {
@@ -24,7 +30,7 @@ impl ItemTypes {
     //TODO: pub const HEALTH_CHECK: &str = "h";
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub enum MetricValueType {
     IntegerItemType(i64),
     BoolItemType(bool),
@@ -40,7 +46,7 @@ impl Default for MetricValueType {
 
 use std::fmt::Display;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub enum ItemTypeEnum {
     TimeUnixMilis(u64),
     DeviceId(String),
@@ -61,17 +67,17 @@ impl Default for ItemTypeEnum {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct MetricDataItem {
     name: String,
     value: MetricValueType,
 }
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct Item {
     pub value: ItemTypeEnum,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct IotextDataRow {
     pub timestamp: Item,
     pub device_id: Item,
@@ -225,6 +231,12 @@ pub fn dump_iotext_to_str(iotext_data_row: &IotextDataRow) -> String {
         iotext_data_row.get_timestamp(),
         iotext_data_row.get_device_id()
     )
+}
+
+pub fn dump_iotext_to_json_str(iotext_data_row: &IotextDataRow) -> String {
+
+    let iotext_data_row: IotextDataRow = parse_iotext_str(MSG_EXAMPLE);
+
 }
 
 #[cfg(test)]
