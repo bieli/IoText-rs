@@ -11,7 +11,12 @@ fn main() {
     println!("iotext_data_row.timestamp_mut: {:#?}", iotext_data_row);
 
     let str_from_iotext_data: String = dump_iotext_to_str(&iotext_data_row);
-    println!("str_from_iotext_data: {}", str_from_iotext_data)
+    println!("str_from_iotext_data: {}", str_from_iotext_data);
+
+    println!(
+        "dump_iotext_to_json_str: {:?}",
+        dump_iotext_to_json_str(&iotext_data_row)
+    )
 }
 
 /*
