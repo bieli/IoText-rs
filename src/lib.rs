@@ -86,9 +86,9 @@ impl IotextDataRow {
     fn get_device_id(&self) -> String {
         self.device_id.value.to_string()
     }
-    fn get_metrics(&self) -> &Option<Vec<MetricDataItem>> {
-        &self.metrics
-    }
+    // fn get_metrics(&self) -> &Option<Vec<MetricDataItem>> {
+    //    &self.metrics
+    //}
 
     // Mutable access.
     pub fn timestamp_mut(&mut self) -> &mut Item {
@@ -208,7 +208,7 @@ pub fn parse_iotext_str(data_row: &str) -> IotextDataRow {
                 ItemTypes::METRIC_ITEM => {
                     //println!("\t\t\tMETRIC_ITEM: {}", String::from(item_part[1]));
                 }
-                val => {
+                _val => {
                     //println!("\t\t\t OTHER: {:?}", val);
                 }
             }
