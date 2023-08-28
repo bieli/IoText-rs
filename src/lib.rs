@@ -42,12 +42,12 @@ impl Default for MetricValueType {
 impl Display for MetricValueType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            MetricValueType::IntegerItemType(value) => write!(f, "i:{:?}", value),
+            MetricValueType::IntegerItemType(value) => write!(f, "i:{value:?}"),
             MetricValueType::BoolItemType(value) => {
                 write!(f, "b:{}", if value.eq(&true) { "1" } else { "0" })
             }
-            MetricValueType::DecimalItemType(value) => write!(f, "d:{:?}", value),
-            MetricValueType::TextItemType(value) => write!(f, "t:{}", value),
+            MetricValueType::DecimalItemType(value) => write!(f, "d:{value:?}"),
+            MetricValueType::TextItemType(value) => write!(f, "t:{value}"),
         }
     }
 }
@@ -82,7 +82,7 @@ pub struct MetricDataItem {
 impl Display for MetricDataItem {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let MetricDataItem { name, value } = self;
-        write!(f, "m|{}={}", name, value)
+        write!(f, "m|{name}={value}")
     }
 }
 
@@ -256,7 +256,7 @@ pub fn dump_iotext_to_str(iotext_data_row: &IotextDataRow) -> String {
         iotext_data_row.get_device_id(),
         metrics_as_str
             .iter()
-            .map(|x| x.to_string())
+            .map(std::string::ToString::to_string)
             .collect::<Vec<_>>()
             .join(",")
     )
