@@ -33,18 +33,37 @@ jobs:
           command: fmt
           args: --all -- --check
 
-  clippy:
-    name: Clippy
+  cargo-clippy:
+    name: Cargo Clippy
     runs-on: ubuntu-latest
+    permissions:
+      checks: write
+    needs:
+      - cargo-build
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Cargo Cache
+        id: cargo-cache
+        uses: actions/cache@v3
         with:
-          toolchain: stable
+          path: |
+            ~/.cargo/.crates.toml
+            ~/.cargo/bin
+            ./target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
           components: clippy
+          profile: minimal
           override: true
-      - uses: actions-rs/clippy-check@v1
+          toolchain: stable
+      - name: Clippy
+        uses: actions-rs/clippy-check@v1
         with:
+          args: --workspace -- -D warnings
+          name: Clippy Results
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features
-          name: Clippy Output
