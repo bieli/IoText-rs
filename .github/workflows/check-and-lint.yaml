@@ -1,10 +1,10 @@
 on: [push, pull_request]
 
-name: Check and Lint
+name: Checks and Lints
 
 jobs:
   check:
-    name: Check
+    name: Cargo check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -18,7 +18,7 @@ jobs:
           command: check
 
   fmt:
-    name: Rustfmt
+    name: Rustfmt check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -33,37 +33,19 @@ jobs:
           command: fmt
           args: --all -- --check
 
-  cargo-clippy:
-    name: Cargo Clippy
+  clippy:
+    name: Clippy Check
     runs-on: ubuntu-latest
-    permissions:
-      checks: write
-    needs:
-      - cargo-build
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Cargo Cache
-        id: cargo-cache
-        uses: actions/cache@v3
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
         with:
-          path: |
-            ~/.cargo/.crates.toml
-            ~/.cargo/bin
-            ./target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          components: clippy
-          profile: minimal
-          override: true
           toolchain: stable
-      - name: Clippy
-        uses: actions-rs/clippy-check@v1
+          components: clippy
+          override: true
+      - uses: giraffate/clippy-action@v1
         with:
-          args: --workspace -- -D warnings
-          name: Clippy Results
           token: ${{ secrets.GITHUB_TOKEN }}
+          args: -- -D clippy::pedantic -D clippy::all
+          clippy_flags: -- -D clippy::pedantic -D clippy::all
+          name: Clippy Output
