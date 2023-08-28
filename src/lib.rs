@@ -1,17 +1,18 @@
+use std::*;
+use std::fmt::Display;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
-use std::*;
 
-pub const MSG_EXAMPLE: &str = "t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|bulb_state=b:1,m|connector_state=b:0,m|temp_01=d:34.4,m|temp_02=d:36.4,m|temp_03=d:10.4,m|pwr=d:12.231,m|current=d:1.429,m|current_battery=d:1.548";
+pub const MSG_EXAMPLE: &str = "t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|bulb_state=b:1,m|connector_state=b:0,m|temp_01=d:34.4,m|temp_02=d:36.4,m|temp_03=d:10.4,m|pwr=d:12.231,m|current=d:1.429,m|current_battery=d:1.548,m|status_txt=t:in_progress";
 
 #[derive(Debug, Default)]
 pub struct MetricDataTypes {}
 
 impl MetricDataTypes {
-    pub const INTEGER: &str = "i";
-    pub const BOOL: &str = "b";
-    pub const DECIMAL: &str = "d";
-    pub const TEXT: &str = "t";
+    pub const INTEGER: &'static str = "i";
+    pub const BOOL: &'static str = "b";
+    pub const DECIMAL: &'static str = "d";
+    pub const TEXT: &'static str = "t";
 }
 
 #[derive(Debug, Default)]
@@ -38,7 +39,16 @@ impl Default for MetricValueType {
     }
 }
 
-use std::fmt::Display;
+impl Display for MetricValueType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            MetricValueType::IntegerItemType(value) => write!(f, "i:{:?}", value),
+            MetricValueType::BoolItemType(value) => write!(f, "b:{}", if value.eq(&true) {"1"} else {"0"}),
+            MetricValueType::DecimalItemType(value) => write!(f, "d:{:?}", value),
+            MetricValueType::TextItemType(value) => write!(f, "t:{}", value),
+        }
+    }
+}
 
 #[derive(Debug, PartialEq)]
 pub enum ItemTypeEnum {
@@ -66,6 +76,16 @@ pub struct MetricDataItem {
     name: String,
     value: MetricValueType,
 }
+
+impl Display for MetricDataItem {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            MetricDataItem { name, value } => write!(f, "m|{}={}", name, value),
+        }
+    }
+}
+
+
 #[derive(Debug, Default, PartialEq)]
 pub struct Item {
     pub value: ItemTypeEnum,
@@ -208,7 +228,7 @@ pub fn parse_iotext_str(data_row: &str) -> IotextDataRow {
                 ItemTypes::METRIC_ITEM => {
                     //println!("\t\t\tMETRIC_ITEM: {}", String::from(item_part[1]));
                 }
-                val => {
+                _val => {
                     //println!("\t\t\t OTHER: {:?}", val);
                 }
             }
@@ -219,12 +239,30 @@ pub fn parse_iotext_str(data_row: &str) -> IotextDataRow {
 }
 
 pub fn dump_iotext_to_str(iotext_data_row: &IotextDataRow) -> String {
-    // TODO: add dump for metrics values
+    let metrics_as_str: &mut Vec<String> = &mut vec![];
+
+    match &iotext_data_row.get_metrics() {
+        Some(metrics) => {
+            for metric in metrics {
+                metrics_as_str.push(metric.to_string());
+            }
+        },
+        None => ()
+    }
+
     format!(
-        "{},{}",
+        "{},{},{}",
         iotext_data_row.get_timestamp(),
-        iotext_data_row.get_device_id()
+        iotext_data_row.get_device_id(),
+        metrics_as_str
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<_>>()
+            .join(",")
     )
+    .as_str()
+    .trim_end_matches(",")
+    .to_string()
 }
 
 #[cfg(test)]
@@ -298,6 +336,16 @@ mod tests {
 
         let s = iotext_data_row.device_id_mut();
         s.value = ItemTypeEnum::DeviceId(String::from("device_name_001".to_string()));
+
+        let result: String = dump_iotext_to_str(&iotext_data_row);
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_dump_iotext_to_str_with_measurements() {
+        let expected: String = "t|3900237526044,d|device_name_002,m|val1i=i:123,m|val2d=d:123.45,m|valb1=b:1,m|valb0=b:0,m|valt=t:abc".to_string();
+        let iotext_data_row = parse_iotext_str(&expected);
 
         let result: String = dump_iotext_to_str(&iotext_data_row);
 
