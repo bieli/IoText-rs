@@ -1,10 +1,6 @@
 use std::*;
 
 use iotext_rs::*;
-#[warn(unused_imports)]
-use rust_decimal::Decimal;
-#[warn(unused_imports)]
-use std::str::FromStr;
 
 fn main() {
     let iotext_data_row = parse_iotext_str(MSG_EXAMPLE);
