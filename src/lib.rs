@@ -1,9 +1,9 @@
-use std::*;
-use std::fmt::Display;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
+use std::fmt::Display;
+use std::*;
 
-pub const MSG_EXAMPLE: &str = "t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|bulb_state=b:1,m|connector_state=b:0,m|temp_01=d:34.4,m|temp_02=d:36.4,m|temp_03=d:10.4,m|pwr=d:12.231,m|current=d:1.429,m|current_battery=d:1.548,m|status_txt=t:in_progress";
+pub const MSG_EXAMPLE: &'static str = "t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|bulb_state=b:1,m|connector_state=b:0,m|temp_01=d:34.4,m|temp_02=d:36.4,m|temp_03=d:10.4,m|pwr=d:12.231,m|current=d:1.429,m|current_battery=d:1.548,m|status_txt=t:in_progress";
 
 #[derive(Debug, Default)]
 pub struct MetricDataTypes {}
@@ -19,10 +19,10 @@ impl MetricDataTypes {
 pub struct ItemTypes {}
 
 impl ItemTypes {
-    pub const TIMESTAMP_MILIS: &str = "t";
-    pub const DEVICE_ID: &str = "d";
-    pub const METRIC_ITEM: &str = "m";
-    //TODO: pub const HEALTH_CHECK: &str = "h";
+    pub const TIMESTAMP_MILIS: &'static str = "t";
+    pub const DEVICE_ID: &'static str = "d";
+    pub const METRIC_ITEM: &'static str = "m";
+    //TODO: pub const HEALTH_CHECK: &'static str = "h";
 }
 
 #[derive(Debug, PartialEq)]
@@ -43,7 +43,9 @@ impl Display for MetricValueType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             MetricValueType::IntegerItemType(value) => write!(f, "i:{:?}", value),
-            MetricValueType::BoolItemType(value) => write!(f, "b:{}", if value.eq(&true) {"1"} else {"0"}),
+            MetricValueType::BoolItemType(value) => {
+                write!(f, "b:{}", if value.eq(&true) { "1" } else { "0" })
+            }
             MetricValueType::DecimalItemType(value) => write!(f, "d:{:?}", value),
             MetricValueType::TextItemType(value) => write!(f, "t:{}", value),
         }
@@ -84,7 +86,6 @@ impl Display for MetricDataItem {
         }
     }
 }
-
 
 #[derive(Debug, Default, PartialEq)]
 pub struct Item {
@@ -246,8 +247,8 @@ pub fn dump_iotext_to_str(iotext_data_row: &IotextDataRow) -> String {
             for metric in metrics {
                 metrics_as_str.push(metric.to_string());
             }
-        },
-        None => ()
+        }
+        None => (),
     }
 
     format!(
