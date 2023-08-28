@@ -3,9 +3,14 @@ use rust_decimal::Decimal;
 use std::fmt::Display;
 use std::*;
 
+extern crate serde;
+extern crate serde_json;
+
+use serde::{Deserialize, Serialize};
+
 pub const MSG_EXAMPLE: &str = "t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|bulb_state=b:1,m|connector_state=b:0,m|temp_01=d:34.4,m|temp_02=d:36.4,m|temp_03=d:10.4,m|pwr=d:12.231,m|current=d:1.429,m|current_battery=d:1.548,m|status_txt=t:in_progress";
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct MetricDataTypes {}
 
 impl MetricDataTypes {
@@ -15,7 +20,7 @@ impl MetricDataTypes {
     pub const TEXT: &'static str = "t";
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct ItemTypes {}
 
 impl ItemTypes {
@@ -25,7 +30,7 @@ impl ItemTypes {
     //TODO: pub const HEALTH_CHECK: &'static str = "h";
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub enum MetricValueType {
     IntegerItemType(i64),
     BoolItemType(bool),
@@ -52,7 +57,7 @@ impl Display for MetricValueType {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub enum ItemTypeEnum {
     TimeUnixMilis(u64),
     DeviceId(String),
@@ -73,12 +78,13 @@ impl Default for ItemTypeEnum {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct MetricDataItem {
     name: String,
     value: MetricValueType,
 }
 
+#[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
 impl Display for MetricDataItem {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let MetricDataItem { name, value } = self;
@@ -91,7 +97,7 @@ pub struct Item {
     pub value: ItemTypeEnum,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct IotextDataRow {
     pub timestamp: Item,
     pub device_id: Item,
@@ -263,6 +269,13 @@ pub fn dump_iotext_to_str(iotext_data_row: &IotextDataRow) -> String {
     .as_str()
     .trim_end_matches(',')
     .to_string()
+}
+
+pub fn dump_iotext_to_json_str(iotext_data_row: &IotextDataRow) -> () {
+    let iotext_data_row: IotextDataRow = parse_iotext_str(MSG_EXAMPLE);
+
+    let dump = serde_json::to_string(&iotext_data_row);
+    println!("dump: {}", dump.is_ok().to_owned());
 }
 
 #[cfg(test)]

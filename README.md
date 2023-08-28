@@ -117,9 +117,24 @@ $ cargo bench
 
 ...
 
-parse_iotext_str        time:   [1.9652 µs 2.0015 µs 2.0388 µs]                              
-Found 19 outliers among 100 measurements (19.00%)
-  8 (8.00%) high mild
-  11 (11.00%) high severe
+     Running benches/my_benchmark.rs (target/release/deps/my_benchmark-1ec5d3a83c52c65c)
+WARNING: HTML report generation will become a non-default optional feature in Criterion.rs 0.4.0.
+This feature is being moved to cargo-criterion (https://github.com/bheisler/cargo-criterion) and will be optional in a future version of Criterion.rs. To silence this warning, either switch to cargo-criterion or enable the 'html_reports' feature in your Cargo.toml.
+
+parse_iotext_str
+                        time:   [1.9311 µs 1.9740 µs 2.0184 µs]                            
+                        change: [-7.1553% -4.9539% -2.7501%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+
+parse_iotext_str_as_json
+                        time:   [1.7930 µs 1.8137 µs 1.8354 µs]
+                        change: [+0.3725% +1.6085% +2.7998%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 9 outliers among 100 measurements (9.00%)
+  7 (7.00%) high mild
+  2 (2.00%) high severe
+
 
 ```
