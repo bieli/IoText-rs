@@ -140,7 +140,9 @@ impl IoTextData for IoTextDataRow {
     ) -> MetricValueType {
         match metric_data_type {
             MetricDataTypes::INTEGER => {
-                let Ok(value) = metric_data_value.parse::<i64>() else { todo!() };
+                let Ok(value) = metric_data_value.parse::<i64>() else {
+                    todo!()
+                };
                 // println!(
                 //    "\t\t\tIntegerItemType: {:?}",
                 //    MetricValueType::IntegerItemType(value)
