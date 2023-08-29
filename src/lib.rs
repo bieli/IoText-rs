@@ -204,9 +204,8 @@ impl IoTextData for IoTextDataRow {
             } else {
                 match item_part[0] {
                     ItemTypes::TIMESTAMP_MILIS => {
-                        let value = match item_part[1].parse::<u64>() {
-                            Ok(number) => number,
-                            Err(_) => todo!(),
+                        let Ok(value) = item_part[1].parse::<u64>() else {
+                            todo!()
                         };
                         //println!(
                         //    "\t\t\tTIMESTAMP_MILIS: {:?}",
