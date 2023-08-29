@@ -202,7 +202,7 @@ impl IoTextData for IoTextDataRow {
                         .extract_metric_value_type(metric_parts_values[0], metric_parts_values[1]),
                 });
             } else {
-                match item_part[0] {
+                match item_part.get(0).unwrap().to_owned() {
                     ItemTypes::TIMESTAMP_MILIS => {
                         let Ok(value) = item_part[1].parse::<u64>() else {
                             todo!()
@@ -211,7 +211,6 @@ impl IoTextData for IoTextDataRow {
                         //    "\t\t\tTIMESTAMP_MILIS: {:?}",
                         //    ItemTypeEnum::TimeUnixMilis(value)
                         //);
-
                         {
                             let s = iotext_data_row.timestamp_mut();
                             s.value = ItemTypeEnum::TimeUnixMilis(value);
