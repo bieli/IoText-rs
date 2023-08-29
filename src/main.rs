@@ -3,10 +3,11 @@ use std::*;
 use iotext_rs::*;
 
 fn main() {
-    let iotext_data_row = parse_iotext_str(MSG_EXAMPLE);
+    let data_obj = IoTextDataRow::default();
+    let iotext_data_row = data_obj.parse_iotext_str(MSG_EXAMPLE);
     println!("iotext_data_row.timestamp_mut: {:#?}", iotext_data_row);
 
-    let str_from_iotext_data: String = dump_iotext_to_str(&iotext_data_row);
+    let str_from_iotext_data: String = data_obj.dump_iotext_to_str(&iotext_data_row);
     println!("str_from_iotext_data: {}", str_from_iotext_data)
 }
 
