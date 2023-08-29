@@ -202,7 +202,7 @@ impl IoTextData for IoTextDataRow {
                         .extract_metric_value_type(metric_parts_values[0], metric_parts_values[1]),
                 });
             } else {
-                match item_part.get(0).unwrap().to_owned() {
+                match item_part.first().unwrap().to_owned() {
                     ItemTypes::TIMESTAMP_MILIS => {
                         let Ok(value) = item_part[1].parse::<u64>() else {
                             todo!()
