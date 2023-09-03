@@ -110,13 +110,13 @@ pub trait IoTextData {
 
 impl IoTextDataRow {
     // Immutable access.
-    fn get_timestamp(&self) -> &ItemTypeEnum {
+    pub fn get_timestamp(&self) -> &ItemTypeEnum {
         &self.timestamp.value
     }
-    fn get_device_id(&self) -> String {
+    pub fn get_device_id(&self) -> String {
         self.device_id.value.to_string()
     }
-    fn get_metrics(&self) -> &Option<Vec<MetricDataItem>> {
+    pub fn get_metrics(&self) -> &Option<Vec<MetricDataItem>> {
         &self.metrics
     }
 
