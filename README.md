@@ -1,5 +1,8 @@
-# IoText-rs (IN DEVELOPMENT)
-RUST implementation of IoText data protocol - specification: https://github.com/bieli/IoText-data-protocol
+# IoText-rs
+
+`IoText` is an IoT and IIoT text-based data protocol, simpler than JSON for time-series data from measurements.
+
+This repository it's `RUST language` implementation of IoText data protocol - specification: https://github.com/bieli/IoText-data-protocol
 
 
 # Development STDOUT (parsing IoText data protocol from String)
