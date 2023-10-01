@@ -113,9 +113,10 @@ impl IoTextDataRow {
     pub fn get_timestamp(&self) -> &ItemTypeEnum {
         &self.timestamp.value
     }
-    pub fn get_device_id(&self) -> String {
-        self.device_id.value.to_string()
+    pub fn get_device_id(&self) -> &ItemTypeEnum {
+        &self.device_id.value
     }
+
     pub fn get_metrics(&self) -> &Option<Vec<MetricDataItem>> {
         &self.metrics
     }
@@ -360,5 +361,35 @@ mod tests {
         let result: String = data_obj.dump_iotext_to_str(&iotext_data_row);
 
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_parse_iotext_str_for_timestamp_without_measurements() {
+        let expected_timestamp: u64 = 3900237526044;
+        let data_obj = IoTextDataRow::default();
+        let iot_ext_proto_test_msg: String = "t|3900237526044,d|device_name_004".to_string();
+        let result = data_obj.parse_iotext_str(&iot_ext_proto_test_msg);
+
+        let result_timestamp: u64 = match result.get_timestamp() {
+            ItemTypeEnum::TimeUnixMilis(value) => value.to_owned(),
+            _ => todo!(),
+        };
+
+        assert_eq!(result_timestamp, expected_timestamp);
+    }
+
+    #[test]
+    fn test_parse_iotext_str_for_device_id_without_measurements() {
+        let expected_device_id: String = "device_name_005".to_string();
+        let data_obj = IoTextDataRow::default();
+        let iot_ext_proto_test_msg: String = "t|3900237526045,d|device_name_005".to_string();
+        let result = data_obj.parse_iotext_str(&iot_ext_proto_test_msg);
+
+        let result_device_id: String = match result.get_device_id() {
+            ItemTypeEnum::DeviceId(value) => value.to_owned(),
+            _ => todo!(),
+        };
+
+        assert_eq!(result_device_id, expected_device_id);
     }
 }
