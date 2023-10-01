@@ -111,7 +111,7 @@ impl IoTextDataRow {
     pub fn get_timestamp(&self) -> &ItemTypeEnum {
         &self.timestamp.value
     }
-    fn get_device_id(&self) -> &ItemTypeEnum {
+    pub fn get_device_id(&self) -> &ItemTypeEnum {
         &self.device_id.value
     }
     pub fn get_metrics(&self) -> &Option<Vec<MetricDataItem>> {
