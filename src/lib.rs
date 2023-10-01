@@ -111,7 +111,7 @@ impl IoTextDataRow {
     pub fn get_timestamp(&self) -> &ItemTypeEnum {
         &self.timestamp.value
     }
-    pub fn get_device_id(&self) -> &ItemTypeEnum {
+    #[must_use] pub fn get_device_id(&self) -> &ItemTypeEnum {
         &self.device_id.value
     }
 
