@@ -1,7 +1,17 @@
 [package]
 name = "iotext_rs"
 version = "0.1.0"
+authors = ["Marcin Bielak <marcin.bieli+IoTextrsgithub@gmail.com>"]
 edition = "2021"
+
+[lib]
+name = "iotext_rs"
+path = "src/lib.rs"
+
+[[bin]]
+name = "iotext_rs_main"
+path = "src/main.rs"
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,3 +25,4 @@ criterion = "0.3"
 [[bench]]
 name = "my_benchmark"
 harness = false
+
