@@ -5,17 +5,25 @@
 
 `IoText` is an IoT and IIoT text-based data protocol, simpler than JSON for time-series data from measurements.
 
-This repository it's `RUST language` implementation of IoText data protocol - specification: https://github.com/bieli/IoText-data-protocol
+This project was written in `RUST language` and it is an implementation of IoText data protocol.
+
+IoText data protocol specification is here: https://github.com/bieli/IoText-data-protocol
 
 
 # Development STDOUT (parsing IoText data protocol from String)
 
+### Input example IoText data row
+```bash
+t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|bulb_state=b:1,m|connector_state=b:0,m|temp_01=d:34.4,m|temp_02=d:36.4,m|temp_03=d:10.4,m|pwr=d:12.231,m|current=d:1.429,m|current_battery=d:1.548,m|status_txt=t:in_progress
+```
+
+### Parsing results (data from below example IoText data row)
 ```bash
 $ cargo b
 $ cargo r
     Finished dev [unoptimized + debuginfo] target(s) in 0.02s
      Running `target/debug/iotext-rs`
-iotext_data_row.timestamp_mut: IotextDataRow {
+iotext_data_row: IoTextDataRow {
     timestamp: Item {
         value: TimeUnixMilis(
             3900237526042,
@@ -86,6 +94,12 @@ iotext_data_row.timestamp_mut: IotextDataRow {
                 name: "current_battery",
                 value: DecimalItemType(
                     1.548,
+                ),
+            },
+            MetricDataItem {
+                name: "status_txt",
+                value: TextItemType(
+                    "in_progress",
                 ),
             },
         ],
