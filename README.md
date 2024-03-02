@@ -46,7 +46,8 @@ Table with tests results:
 | 2080 | 100 | 20.5 |
 | 4160 | 200 | 41.5 |
 
-**Based on the below data in avg. 1 second time, we can parse avg. 24000 IoText data messages with this RUST implementation.**
+**Based on the below data in avg. 1 second time, we can parse avg. 24000 IoText data messages (with 200 metrics) with this RUST implementation.**
+**It is quite an impressive result and of course, expected !!!**
 
 Tests were prepared on a machine with Intel(R) Core(TM) i7-8850H CPU @ 2.60GHz 6-cores processor and 32GB RAM. With `load average: 1,44, 2,49, 3,51` (info from `upime` cmd) and approx. 80% RAM used. Linux kernel 5.15 and distribution Linux Ubuntu 20.04.6 LTS.
 
