@@ -10,10 +10,10 @@ This project was written in `RUST language` and it is an implementation of IoTex
 IoText data protocol specification is here: https://github.com/bieli/IoText-data-protocol
 
 
-## Development STDOUT (parsing IoText data protocol from String)
+## Development details
 
 
-### Example library usage code (parse String with IoText row and prepare String from  IoText row)
+### Example library code usage (parsing String with IoText row and preparing String from IoText MSG_EXAMPLE row)
 
 ```rust
 use std::*;
@@ -31,6 +31,23 @@ fn main() {
     println!("str_from_iotext_data: {}", str_from_iotext_data)
 }
 ```
+
+## Benchmark synthetics tests - guaranty of linear inc. parsing time depends IoText metrics count
+
+
+| IoText message size (bytes) | IoText msg. metrics count  | avg. parsing time (µs) |
+| --- | --- | --- |
+| 206 | 10 | 2.5 |
+| 432 | 20 | 4.5 |
+| 638 | 30 | 6.5 |
+| 844 | 40 | 8.5 |
+| 1050 | 50 | 10.5 |
+| 2080 | 100 | 20.5 |
+| 4160 | 200 | 41.5 |
+
+Tests were prepared on machine with Intel(R) Core(TM) i7-8850H CPU @ 2.60GHz 6-cores processor and 32GB RAM. With `load average: 1,44, 2,49, 3,51` (info from `upime` cmd) and approx. 80% RAM used. Linux kernel 5.15 and distribution Linux Ubuntu 20.04.6 LTS.
+
+More detailed statistics from `cargo bench` running you can see in bottom section `Example cargo bench outputs`.
 
 ### Input example IoText data row
 ```bash
@@ -128,6 +145,66 @@ iotext_data_row: IoTextDataRow {
 ```
 
 
+### Example cargo bench outputs
+```bash
+
+$ cargo bench
+
+parse_iotext_str - 10 metrics                                                                             
+                        time:   [1.9704 µs 1.9910 µs 2.0142 µs]
+                        change: [-1.0093% +2.9404% +7.3783%] (p = 0.19 > 0.05)
+                        No change in performance detected.
+Found 13 outliers among 100 measurements (13.00%)
+  9 (9.00%) high mild
+  4 (4.00%) high severe
+
+parse_iotext_str - 20 metrics                                                                             
+                        time:   [3.8728 µs 3.9334 µs 4.0187 µs]
+                        change: [-1.9420% +0.3434% +2.5942%] (p = 0.78 > 0.05)
+                        No change in performance detected.
+Found 11 outliers among 100 measurements (11.00%)
+  4 (4.00%) high mild
+  7 (7.00%) high severe
+
+parse_iotext_str - 30 metrics                                                                             
+                        time:   [5.9316 µs 6.0091 µs 6.0924 µs]
+                        change: [+2.2407% +3.9826% +5.6299%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 7 outliers among 100 measurements (7.00%)
+  6 (6.00%) high mild
+  1 (1.00%) high severe
+
+parse_iotext_str - 40 metrics                                                                             
+                        time:   [8.4750 µs 8.6151 µs 8.7691 µs]
+                        change: [-2.1735% -0.1968% +1.6887%] (p = 0.85 > 0.05)
+                        No change in performance detected.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+
+parse_iotext_str - 50 metrics                                                                             
+                        time:   [10.914 µs 11.076 µs 11.264 µs]
+                        change: [+3.2785% +5.5452% +7.6130%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+
+parse_iotext_str - 100 metrics                                                                             
+                        time:   [20.456 µs 20.593 µs 20.764 µs]
+                        change: [-1.5163% +0.1975% +1.7861%] (p = 0.82 > 0.05)
+                        No change in performance detected.
+Found 8 outliers among 100 measurements (8.00%)
+  2 (2.00%) high mild
+  6 (6.00%) high severe
+
+parse_iotext_str - 200 metrics                                                                             
+                        time:   [40.849 µs 41.396 µs 42.023 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  4 (4.00%) high mild
+  2 (2.00%) high severe
+```
+
+
 ## Run unit tests
 
 ```bash
@@ -149,17 +226,3 @@ test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 ```
 
-## Run benchmark tests
-
-```bash
-
-$ cargo bench
-
-...
-
-parse_iotext_str        time:   [1.9652 µs 2.0015 µs 2.0388 µs]                              
-Found 19 outliers among 100 measurements (19.00%)
-  8 (8.00%) high mild
-  11 (11.00%) high severe
-
-```
