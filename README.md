@@ -34,6 +34,7 @@ fn main() {
 
 ## Benchmark synthetics tests - guaranty of linear inc. parsing time depends IoText metrics count
 
+Table with tests results:
 
 | IoText message size (bytes) | IoText msg. metrics count  | avg. parsing time (µs) |
 | --- | --- | --- |
@@ -144,7 +145,6 @@ iotext_data_row: IoTextDataRow {
 }
 ```
 
-
 ### Example cargo bench outputs
 ```bash
 
@@ -222,7 +222,5 @@ test tests::test_extract_metric_value_type_decimal ... ok
 test tests::test_extract_metric_value_type_text ... ok
 
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-
 ```
 
