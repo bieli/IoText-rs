@@ -70,8 +70,9 @@ mod tests {
         );
     }
 
+
     #[test]
-    fn test_dump_iotext_to_str_without_measurements() {
+    fn test_dump_iotext_to_str_without_measurements_without_crc16() {
         let data_obj = IoTextDataRow::default();
         let expected: String = "t|3900237526042,d|device_name_001".to_string();
         let mut iotext_data_row = IoTextDataRow::default();
@@ -82,18 +83,18 @@ mod tests {
         let s = iotext_data_row.device_id_mut();
         s.value = ItemTypeEnum::DeviceId(String::from("device_name_001".to_string()));
 
-        let result: String = data_obj.dump_iotext_to_str(&iotext_data_row);
+        let result: String = data_obj.dump_iotext_to_str(&iotext_data_row, false);
 
         assert_eq!(result, expected);
     }
 
     #[test]
-    fn test_dump_iotext_to_str_with_measurements() {
+    fn test_dump_iotext_to_str_with_measurements_without_crc16() {
         let data_obj = IoTextDataRow::default();
         let expected: String = "t|3900237526044,d|device_name_002,m|val1i=i:123,m|val2d=d:123.45,m|valb1=b:1,m|valb0=b:0,m|valt=t:abc".to_string();
         let iotext_data_row = data_obj.parse_iotext_str(&expected);
 
-        let result: String = data_obj.dump_iotext_to_str(&iotext_data_row);
+        let result: String = data_obj.dump_iotext_to_str(&iotext_data_row, false);
 
         assert_eq!(result, expected);
     }

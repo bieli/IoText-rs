@@ -106,7 +106,7 @@ pub trait IoTextData {
         metric_data_value: &str,
     ) -> MetricValueType;
     fn parse_iotext_str(&self, data_row: &str) -> IoTextDataRow;
-    fn dump_iotext_to_str(&self, iotext_data_row: &IoTextDataRow) -> String;
+    fn dump_iotext_to_str(&self, iotext_data_row: &IoTextDataRow, add_crc16: bool) -> String;
 }
 
 impl IoTextDataRow {
@@ -250,9 +250,10 @@ impl IoTextData for IoTextDataRow {
         iotext_data_row
     }
 
-    fn dump_iotext_to_str(&self, iotext_data_row: &IoTextDataRow) -> String {
+    fn dump_iotext_to_str(&self, iotext_data_row: &IoTextDataRow, add_crc16: bool) -> String {
         let metrics_as_str: &mut Vec<String> = &mut vec![];
-
+        //let crc16: String = (&iotext_data_row.get_crc16()).to_string();
+        let crc16_element: String = if add_crc16 { format!(",{}|{}", ItemTypes::CRC, &iotext_data_row.get_crc16()) } else { "".to_string() };
         match &iotext_data_row.get_metrics() {
             Some(metrics) => {
                 for metric in metrics {
@@ -274,7 +275,7 @@ impl IoTextData for IoTextDataRow {
         )
         .as_str()
         .trim_end_matches(',')
-        .to_string()
+        .to_string() + &crc16_element
     }
 }
 
