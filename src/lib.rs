@@ -19,6 +19,7 @@ impl ItemTypes {
     pub const TIMESTAMP_MILIS: &'static str = "t";
     pub const DEVICE_ID: &'static str = "d";
     pub const METRIC_ITEM: &'static str = "m";
+    pub const CRC: &'static str = "c";
     //TODO: pub const HEALTH_CHECK: &'static str = "h";
 }
 
@@ -53,6 +54,7 @@ impl Display for MetricValueType {
 pub enum ItemTypeEnum {
     TimeUnixMilis(u64),
     DeviceId(String),
+    Crc(String),
 }
 
 impl Display for ItemTypeEnum {
@@ -60,6 +62,7 @@ impl Display for ItemTypeEnum {
         match self {
             ItemTypeEnum::TimeUnixMilis(value) => write!(f, "t|{:?}", value),
             ItemTypeEnum::DeviceId(value) => write!(f, "d|{}", value),
+            ItemTypeEnum::Crc(value) => write!(f, "c|{}", value),
         }
     }
 }
@@ -93,6 +96,7 @@ pub struct IoTextDataRow {
     pub timestamp: Item,
     pub device_id: Item,
     pub metrics: Option<Vec<MetricDataItem>>,
+    pub crc16: String,
 }
 
 pub trait IoTextData {
@@ -117,6 +121,10 @@ impl IoTextDataRow {
 
     pub fn get_metrics(&self) -> &Option<Vec<MetricDataItem>> {
         &self.metrics
+    }
+
+    pub fn get_crc16(&self) -> ItemTypeEnum {
+        ItemTypeEnum::Crc(self.crc16.clone())
     }
 
     // Mutable access.
@@ -228,6 +236,9 @@ impl IoTextData for IoTextDataRow {
                     }
                     ItemTypes::METRIC_ITEM => {
                         //println!("\t\t\tMETRIC_ITEM: {}", String::from(item_part[1]));
+                    }
+                    ItemTypes::CRC => {
+                        //println!("\t\t\tCRC: {}", String::from(item_part[1]));
                     }
                     _val => {
                         //println!("\t\t\t OTHER: {:?}", val);
