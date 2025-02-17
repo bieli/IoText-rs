@@ -3,7 +3,7 @@ all:
 	make test
 
 test:
-	cargo test --test lib_test
+	cargo test
 build:
 	cargo clean
 	cargo build
