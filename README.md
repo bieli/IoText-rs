@@ -212,7 +212,7 @@ Found 6 outliers among 100 measurements (6.00%)
 
 ```bash
 
-$ cargo test
+$ make test
 
     Finished test [unoptimized + debuginfo] target(s) in 0.42s
      Running unittests src/main.rs (target/debug/deps/iotext_rs-a68ae8edfd0a7e63)
