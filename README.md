@@ -1,7 +1,8 @@
 # IoText-rs
 
 ![CI status](https://github.com/bieli/IoText-rs/actions/workflows/test.yaml/badge.svg)
-
+![github_tag](https://img.shields.io/github/v/tag/bieli/IoText-rs)
+[![Crates.io](https://img.shields.io/crates/v/IoText-rs.svg)](https://crates.io/crates/IoText-rs)
 
 `IoText` is an IoT and IIoT text-based data protocol, simpler than JSON for time-series data from measurements.
 
