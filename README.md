@@ -5,7 +5,7 @@
 
 `IoText` is an IoT and IIoT text-based data protocol, simpler than JSON for time-series data from measurements.
 
-This project was written in `RUST language` and it is an implementation of IoText data protocol.
+This project was written in `RUST language` and it is an implementation of [IoText data protocol](https://github.com/bieli/IoText-data-protocol).
 
 IoText data protocol specification is here: https://github.com/bieli/IoText-data-protocol
 
