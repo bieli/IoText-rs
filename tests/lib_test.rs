@@ -14,13 +14,13 @@ mod tests {
         let int_value = MetricValueType::IntegerItemType(42);
         let bool_true_value = MetricValueType::BoolItemType(true);
         let bool_false_value = MetricValueType::BoolItemType(false);
-        let decimal_value = MetricValueType::DecimalItemType(Decimal::new(42424242424242, 42000042));
+        let decimal_value = MetricValueType::DecimalItemType(Decimal::new(42, 12));
         let text_value = MetricValueType::TextItemType("Hello, IoT!".to_string());
 
         assert_eq!(int_value, MetricValueType::IntegerItemType(42));
         assert_eq!(bool_true_value, MetricValueType::BoolItemType(true));
         assert_eq!(bool_false_value, MetricValueType::BoolItemType(false));
-        assert_eq!(decimal_value, MetricValueType::DecimalItemType(Decimal::new(42424242424242, 42000042)));
+        assert_eq!(decimal_value, MetricValueType::DecimalItemType(Decimal::new(42, 12)));
         assert_eq!(text_value, MetricValueType::TextItemType("Hello, IoT!".to_string()));
     }
     
