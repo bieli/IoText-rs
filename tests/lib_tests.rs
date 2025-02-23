@@ -7,7 +7,6 @@ use iotext_rs::MetricValueType;
 
 #[cfg(test)]
 mod lib_tests {
-    use iotext_rs::{Item, MetricDataItem};
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
@@ -128,6 +127,24 @@ mod lib_tests {
         };
 
         assert_eq!(result_device_id, expected_device_id);
+    }
+
+
+    #[test]
+    fn test_parse_iotext_str_for_device_id_without_measurements_with_crc16() {
+        let expected_crc16: String = "c|E4D5".to_string();
+        let data_obj = IoTextDataRow::default();
+        let iot_ext_proto_test_msg: String = "t|3900237526045,d|device_name_005,c|E4D5".to_string();
+        let result = data_obj.parse_iotext_str(&iot_ext_proto_test_msg);
+
+        let optional_crc16 = result.get_crc16();
+        let result_crc16: String = optional_crc16.as_ref().unwrap().to_string();
+        // let val1 = optional_crc16.as_ref().unwrap();
+        // let result_crc16: String = match val1 {
+        //     value => value.value.to_string(),
+        // };
+
+        assert_eq!(result_crc16, expected_crc16);
     }
 
     #[test]

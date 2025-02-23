@@ -206,7 +206,7 @@ impl IoTextData for IoTextDataRow {
     }
 
     fn parse_iotext_str(&self, data_row: &str) -> IoTextDataRow {
-        let mut iotext_data_row = IoTextDataRow::default();
+        let mut iotext_data_row: IoTextDataRow = IoTextDataRow::default();
         let item_parts: Vec<&str> = data_row.split(',').collect();
 
         for part in item_parts {
@@ -257,7 +257,36 @@ impl IoTextData for IoTextDataRow {
                         //println!("\t\t\tMETRIC_ITEM: {}", String::from(item_part[1]));
                     }
                     ItemTypes::CRC => {
-                        //println!("\t\t\tCRC: {}", String::from(item_part[1]));
+                        // println!("\t\t\tCRC: {}", String::from(item_part[1]));
+
+                        //let &mut crc16_mut = iotext_data_row.crc16_mut();
+
+                        // let &mut optional_crc16_mut = iotext_data_row.crc16_mut();
+                        // optional_crc16_mut.unwrap().value = ItemTypeEnum::Crc(
+                        //             item_part[1].to_string()
+                        // )
+
+                        //let optional_crc16_mut = iotext_data_row.crc16_mut();
+                        //optional_crc16_mut.as_mut().unwrap().value = ItemTypeEnum::Crc(
+                        //    item_part[1].to_string()
+                        //)
+
+                        // let optional_crc16_mut = iotext_data_row.crc16_mut();
+                        // match optional_crc16_mut.as_mut() {
+                        //     Some(item) => item.value =
+                        //         ItemTypeEnum::Crc(item_part[1].to_string()),
+                        //     None => {}
+                        // }
+
+                        // let optional_crc16_mut = iotext_data_row.crc16_mut();
+                        // optional_crc16_mut.as_mut().unwrap().value =
+                        // Item {
+                        //     value: ItemTypeEnum::Crc(item_part[1].to_string())
+                        // }.value
+
+                        let optional_crc16_mut = iotext_data_row.crc16_mut();
+                        optional_crc16_mut.get_or_insert_with(Item::default).value =
+                            ItemTypeEnum::Crc(item_part[1].to_string());
                     }
                     _val => {
                         //println!("\t\t\t OTHER: {:?}", val);
