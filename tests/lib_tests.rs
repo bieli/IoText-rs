@@ -129,7 +129,6 @@ mod lib_tests {
         assert_eq!(result_device_id, expected_device_id);
     }
 
-
     #[test]
     fn test_parse_iotext_str_for_device_id_without_measurements_with_crc16() {
         let expected_crc16: String = "c|E4D5".to_string();
