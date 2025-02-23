@@ -6,7 +6,9 @@ use iotext_rs::ItemTypeEnum;
 use iotext_rs::MetricValueType;
 
 #[cfg(test)]
-mod tests {
+mod lib_tests {
+    use iotext_rs::{Item, MetricDataItem};
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
     #[test]
@@ -70,7 +72,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_dump_iotext_to_str_without_measurements_without_crc16() {
         let data_obj = IoTextDataRow::default();
@@ -81,7 +82,7 @@ mod tests {
         s.value = ItemTypeEnum::TimeUnixMilis(3900237526042);
 
         let s = iotext_data_row.device_id_mut();
-        s.value = ItemTypeEnum::DeviceId(String::from("device_name_001".to_string()));
+        s.value = ItemTypeEnum::DeviceId("device_name_001".to_string());
 
         let result: String = data_obj.dump_iotext_to_str(&iotext_data_row, false);
 
@@ -127,5 +128,38 @@ mod tests {
         };
 
         assert_eq!(result_device_id, expected_device_id);
+    }
+
+    #[test]
+    fn test_dump_iotext_to_str_without_measurements_with_crc16() {
+        let data_obj = IoTextDataRow::default();
+        let expected: String = "t|3900237526042,d|DEV_NAME_002,c|6E24".to_string();
+        let mut iotext_data_row = IoTextDataRow::default();
+
+        let s = iotext_data_row.timestamp_mut();
+        s.value = ItemTypeEnum::TimeUnixMilis(3900237526042);
+
+        let s = iotext_data_row.device_id_mut();
+        s.value = ItemTypeEnum::DeviceId("DEV_NAME_002".to_string());
+
+        // let crc16_mut_opt = iotext_data_row.crc16_mut();
+        //&crc16_mut_opt.unwrap().value = ItemTypeEnum::Crc("07A3".to_string());
+        //crc16_mut_opt.unwrap().value = ItemTypeEnum::Crc("07A3".to_string());
+
+        let result: String = data_obj.dump_iotext_to_str(&iotext_data_row, true);
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_dump_iotext_to_str_with_measurements_with_crc16() {
+        let data_obj = IoTextDataRow::default();
+        let expected: String =
+            "t|3900237526042,d|DEV_NAME_002,m|example_metric_name=d:12.07,c|3E3C".to_string();
+        let iotext_data_row = data_obj.parse_iotext_str(&expected);
+
+        let result: String = data_obj.dump_iotext_to_str(&iotext_data_row, true);
+
+        assert_eq!(result, expected);
     }
 }

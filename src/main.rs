@@ -9,7 +9,7 @@ fn main() {
     let iotext_data_row = data_obj.parse_iotext_str(MSG_EXAMPLE);
     println!("iotext_data_row: {:#?}", iotext_data_row);
 
-    let str_from_iotext_data: String = data_obj.dump_iotext_to_str(&iotext_data_row, false);
+    let str_from_iotext_data: String = data_obj.dump_iotext_to_str(&iotext_data_row, true);
     println!("str_from_iotext_data: {}", str_from_iotext_data)
 }
 

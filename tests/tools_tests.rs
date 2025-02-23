@@ -1,9 +1,8 @@
 use iotext_rs::Tools;
 use iotext_rs::CRC16_POLY_DEFAULT;
 
-  
 #[cfg(test)]
-mod tests {
+mod tools_tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
@@ -20,7 +19,8 @@ mod tests {
     #[test]
     fn test_should_crc16_message_with_items() {
         let expected_result = "4C5A";
-        let iot_ext_proto_test_msg: String = "t|123123123123,d|device_one,m|value=d:123.321".to_string();
+        let iot_ext_proto_test_msg: String =
+            "t|123123123123,d|device_one,m|value=d:123.321".to_string();
 
         let result = Tools::crc16(&iot_ext_proto_test_msg, CRC16_POLY_DEFAULT);
 

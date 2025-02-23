@@ -2,6 +2,10 @@ use rust_decimal::prelude::*;
 use std::fmt::Display;
 use std::*;
 
+pub mod tools;
+pub use tools::CRC16_POLY_DEFAULT;
+pub use tools::*;
+
 #[derive(Debug, Default)]
 pub struct MetricDataTypes {}
 
@@ -90,13 +94,22 @@ impl Display for MetricDataItem {
 pub struct Item {
     pub value: ItemTypeEnum,
 }
+impl fmt::Display for Item {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.value.to_string() //Tools::crc16(self.value.to_string().as_str(), CRC16_POLY_DEFAULT)
+        )
+    }
+}
 
 #[derive(Debug, Default)]
 pub struct IoTextDataRow {
     pub timestamp: Item,
     pub device_id: Item,
     pub metrics: Option<Vec<MetricDataItem>>,
-    pub crc16: String,
+    pub crc16: Option<Item>,
 }
 
 pub trait IoTextData {
@@ -123,19 +136,25 @@ impl IoTextDataRow {
         &self.metrics
     }
 
-    pub fn get_crc16(&self) -> ItemTypeEnum {
-        ItemTypeEnum::Crc(self.crc16.clone())
+    pub fn get_crc16(&self) -> &Option<Item> {
+        &self.crc16
     }
 
     // Mutable access.
     pub fn timestamp_mut(&mut self) -> &mut Item {
         &mut self.timestamp
     }
+
     pub fn device_id_mut(&mut self) -> &mut Item {
         &mut self.device_id
     }
+
     pub fn metrics_mut(&mut self) -> &mut Option<Vec<MetricDataItem>> {
         &mut self.metrics
+    }
+
+    pub fn crc16_mut(&mut self) -> &mut Option<Item> {
+        &mut self.crc16
     }
 }
 
@@ -252,8 +271,6 @@ impl IoTextData for IoTextDataRow {
 
     fn dump_iotext_to_str(&self, iotext_data_row: &IoTextDataRow, add_crc16: bool) -> String {
         let metrics_as_str: &mut Vec<String> = &mut vec![];
-        //let crc16: String = (&iotext_data_row.get_crc16()).to_string();
-        let crc16_element: String = if add_crc16 { format!(",{}|{}", ItemTypes::CRC, &iotext_data_row.get_crc16()) } else { "".to_string() };
         match &iotext_data_row.get_metrics() {
             Some(metrics) => {
                 for metric in metrics {
@@ -263,7 +280,7 @@ impl IoTextData for IoTextDataRow {
             None => (),
         }
 
-        format!(
+        let msg_val: String = format!(
             "{},{},{}",
             iotext_data_row.get_timestamp(),
             iotext_data_row.get_device_id(),
@@ -272,39 +289,32 @@ impl IoTextData for IoTextDataRow {
                 .map(std::string::ToString::to_string)
                 .collect::<Vec<_>>()
                 .join(",")
-        )
-        .as_str()
-        .trim_end_matches(',')
-        .to_string() + &crc16_element
-    }
-}
+        );
 
-pub const CRC16_POLY_DEFAULT: u16 = 0xA001;
-
-pub struct Tools;
-
-impl Tools {
-    pub fn crc16(data: &str, poly: u16) -> String {
-        let mut crc: u16 = 0xFFFF;
-        for byte in data.bytes() {
-            crc ^= byte as u16;
-            for _ in 0..8 {
-                crc = if (crc & 0x0001) != 0 {
-                    (crc >> 1) ^ poly
-                } else {
-                    crc >> 1
-                };
-            }
-        }
-        let hv = format!("{:X}", crc);
-        let blueprint = "0000".to_string();
-        if hv.is_empty() {
-            blueprint
+        let crc16_element: String = if add_crc16 == true {
+            format!(
+                ",{}|{}",
+                ItemTypes::CRC,
+                //format!("{}", msg_val.as_str())
+                Tools::crc16(msg_val.as_str(), CRC16_POLY_DEFAULT)
+            )
         } else {
-            let len_diff = blueprint.len().saturating_sub(hv.len());
-            format!("{}{}", &blueprint[..len_diff], hv)
-        }
+            "".to_string()
+        };
+
+        // let crc16_element: String = if add_crc16 {
+        //     match &iotext_data_row.get_crc16() {
+        //         Some(_) => {
+        //             let crc16 = Tools::crc16("ABCD", CRC16_POLY_DEFAULT);
+        //             //format!(",{}|{}", ItemTypes::CRC, val.to_string())
+        //             format!(",{}|{}", ItemTypes::CRC, crc16)
+        //         },
+        //         None => "".to_string(),
+        //     }
+        // } else {
+        //     "".to_string()
+        // };
+
+        msg_val.trim_end_matches(',').to_string() + &crc16_element
     }
 }
-
-
