@@ -2,6 +2,10 @@ use rust_decimal::prelude::*;
 use std::fmt::Display;
 use std::*;
 
+pub mod tools;
+pub use tools::CRC16_POLY_DEFAULT;
+pub use tools::*;
+
 #[derive(Debug, Default)]
 pub struct MetricDataTypes {}
 
@@ -19,6 +23,7 @@ impl ItemTypes {
     pub const TIMESTAMP_MILIS: &'static str = "t";
     pub const DEVICE_ID: &'static str = "d";
     pub const METRIC_ITEM: &'static str = "m";
+    pub const CRC: &'static str = "c";
     //TODO: pub const HEALTH_CHECK: &'static str = "h";
 }
 
@@ -53,6 +58,7 @@ impl Display for MetricValueType {
 pub enum ItemTypeEnum {
     TimeUnixMilis(u64),
     DeviceId(String),
+    Crc(String),
 }
 
 impl Display for ItemTypeEnum {
@@ -60,6 +66,7 @@ impl Display for ItemTypeEnum {
         match self {
             ItemTypeEnum::TimeUnixMilis(value) => write!(f, "t|{:?}", value),
             ItemTypeEnum::DeviceId(value) => write!(f, "d|{}", value),
+            ItemTypeEnum::Crc(value) => write!(f, "c|{}", value),
         }
     }
 }
@@ -87,12 +94,22 @@ impl Display for MetricDataItem {
 pub struct Item {
     pub value: ItemTypeEnum,
 }
+impl fmt::Display for Item {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.value.to_string() //Tools::crc16(self.value.to_string().as_str(), CRC16_POLY_DEFAULT)
+        )
+    }
+}
 
 #[derive(Debug, Default)]
 pub struct IoTextDataRow {
     pub timestamp: Item,
     pub device_id: Item,
     pub metrics: Option<Vec<MetricDataItem>>,
+    pub crc16: Option<Item>,
 }
 
 pub trait IoTextData {
@@ -102,7 +119,7 @@ pub trait IoTextData {
         metric_data_value: &str,
     ) -> MetricValueType;
     fn parse_iotext_str(&self, data_row: &str) -> IoTextDataRow;
-    fn dump_iotext_to_str(&self, iotext_data_row: &IoTextDataRow) -> String;
+    fn dump_iotext_to_str(&self, iotext_data_row: &IoTextDataRow, add_crc16: bool) -> String;
 }
 
 impl IoTextDataRow {
@@ -119,15 +136,25 @@ impl IoTextDataRow {
         &self.metrics
     }
 
+    pub fn get_crc16(&self) -> &Option<Item> {
+        &self.crc16
+    }
+
     // Mutable access.
     pub fn timestamp_mut(&mut self) -> &mut Item {
         &mut self.timestamp
     }
+
     pub fn device_id_mut(&mut self) -> &mut Item {
         &mut self.device_id
     }
+
     pub fn metrics_mut(&mut self) -> &mut Option<Vec<MetricDataItem>> {
         &mut self.metrics
+    }
+
+    pub fn crc16_mut(&mut self) -> &mut Option<Item> {
+        &mut self.crc16
     }
 }
 
@@ -179,7 +206,7 @@ impl IoTextData for IoTextDataRow {
     }
 
     fn parse_iotext_str(&self, data_row: &str) -> IoTextDataRow {
-        let mut iotext_data_row = IoTextDataRow::default();
+        let mut iotext_data_row: IoTextDataRow = IoTextDataRow::default();
         let item_parts: Vec<&str> = data_row.split(',').collect();
 
         for part in item_parts {
@@ -229,6 +256,38 @@ impl IoTextData for IoTextDataRow {
                     ItemTypes::METRIC_ITEM => {
                         //println!("\t\t\tMETRIC_ITEM: {}", String::from(item_part[1]));
                     }
+                    ItemTypes::CRC => {
+                        // println!("\t\t\tCRC: {}", String::from(item_part[1]));
+
+                        //let &mut crc16_mut = iotext_data_row.crc16_mut();
+
+                        // let &mut optional_crc16_mut = iotext_data_row.crc16_mut();
+                        // optional_crc16_mut.unwrap().value = ItemTypeEnum::Crc(
+                        //             item_part[1].to_string()
+                        // )
+
+                        //let optional_crc16_mut = iotext_data_row.crc16_mut();
+                        //optional_crc16_mut.as_mut().unwrap().value = ItemTypeEnum::Crc(
+                        //    item_part[1].to_string()
+                        //)
+
+                        // let optional_crc16_mut = iotext_data_row.crc16_mut();
+                        // match optional_crc16_mut.as_mut() {
+                        //     Some(item) => item.value =
+                        //         ItemTypeEnum::Crc(item_part[1].to_string()),
+                        //     None => {}
+                        // }
+
+                        // let optional_crc16_mut = iotext_data_row.crc16_mut();
+                        // optional_crc16_mut.as_mut().unwrap().value =
+                        // Item {
+                        //     value: ItemTypeEnum::Crc(item_part[1].to_string())
+                        // }.value
+
+                        let optional_crc16_mut = iotext_data_row.crc16_mut();
+                        optional_crc16_mut.get_or_insert_with(Item::default).value =
+                            ItemTypeEnum::Crc(item_part[1].to_string());
+                    }
                     _val => {
                         //println!("\t\t\t OTHER: {:?}", val);
                     }
@@ -239,9 +298,8 @@ impl IoTextData for IoTextDataRow {
         iotext_data_row
     }
 
-    fn dump_iotext_to_str(&self, iotext_data_row: &IoTextDataRow) -> String {
+    fn dump_iotext_to_str(&self, iotext_data_row: &IoTextDataRow, add_crc16: bool) -> String {
         let metrics_as_str: &mut Vec<String> = &mut vec![];
-
         match &iotext_data_row.get_metrics() {
             Some(metrics) => {
                 for metric in metrics {
@@ -251,7 +309,7 @@ impl IoTextData for IoTextDataRow {
             None => (),
         }
 
-        format!(
+        let msg_val: String = format!(
             "{},{},{}",
             iotext_data_row.get_timestamp(),
             iotext_data_row.get_device_id(),
@@ -260,9 +318,32 @@ impl IoTextData for IoTextDataRow {
                 .map(std::string::ToString::to_string)
                 .collect::<Vec<_>>()
                 .join(",")
-        )
-        .as_str()
-        .trim_end_matches(',')
-        .to_string()
+        );
+
+        let crc16_element: String = if add_crc16 == true {
+            format!(
+                ",{}|{}",
+                ItemTypes::CRC,
+                //format!("{}", msg_val.as_str())
+                Tools::crc16(msg_val.as_str(), CRC16_POLY_DEFAULT)
+            )
+        } else {
+            "".to_string()
+        };
+
+        // let crc16_element: String = if add_crc16 {
+        //     match &iotext_data_row.get_crc16() {
+        //         Some(_) => {
+        //             let crc16 = Tools::crc16("ABCD", CRC16_POLY_DEFAULT);
+        //             //format!(",{}|{}", ItemTypes::CRC, val.to_string())
+        //             format!(",{}|{}", ItemTypes::CRC, crc16)
+        //         },
+        //         None => "".to_string(),
+        //     }
+        // } else {
+        //     "".to_string()
+        // };
+
+        msg_val.trim_end_matches(',').to_string() + &crc16_element
     }
 }

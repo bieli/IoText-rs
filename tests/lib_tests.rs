@@ -6,7 +6,8 @@ use iotext_rs::ItemTypeEnum;
 use iotext_rs::MetricValueType;
 
 #[cfg(test)]
-mod tests {
+mod lib_tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
     #[test]
@@ -71,7 +72,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dump_iotext_to_str_without_measurements() {
+    fn test_dump_iotext_to_str_without_measurements_without_crc16() {
         let data_obj = IoTextDataRow::default();
         let expected: String = "t|3900237526042,d|device_name_001".to_string();
         let mut iotext_data_row = IoTextDataRow::default();
@@ -80,20 +81,20 @@ mod tests {
         s.value = ItemTypeEnum::TimeUnixMilis(3900237526042);
 
         let s = iotext_data_row.device_id_mut();
-        s.value = ItemTypeEnum::DeviceId(String::from("device_name_001".to_string()));
+        s.value = ItemTypeEnum::DeviceId("device_name_001".to_string());
 
-        let result: String = data_obj.dump_iotext_to_str(&iotext_data_row);
+        let result: String = data_obj.dump_iotext_to_str(&iotext_data_row, false);
 
         assert_eq!(result, expected);
     }
 
     #[test]
-    fn test_dump_iotext_to_str_with_measurements() {
+    fn test_dump_iotext_to_str_with_measurements_without_crc16() {
         let data_obj = IoTextDataRow::default();
         let expected: String = "t|3900237526044,d|device_name_002,m|val1i=i:123,m|val2d=d:123.45,m|valb1=b:1,m|valb0=b:0,m|valt=t:abc".to_string();
         let iotext_data_row = data_obj.parse_iotext_str(&expected);
 
-        let result: String = data_obj.dump_iotext_to_str(&iotext_data_row);
+        let result: String = data_obj.dump_iotext_to_str(&iotext_data_row, false);
 
         assert_eq!(result, expected);
     }
@@ -126,5 +127,55 @@ mod tests {
         };
 
         assert_eq!(result_device_id, expected_device_id);
+    }
+
+    #[test]
+    fn test_parse_iotext_str_for_device_id_without_measurements_with_crc16() {
+        let expected_crc16: String = "c|E4D5".to_string();
+        let data_obj = IoTextDataRow::default();
+        let iot_ext_proto_test_msg: String = "t|3900237526045,d|device_name_005,c|E4D5".to_string();
+        let result = data_obj.parse_iotext_str(&iot_ext_proto_test_msg);
+
+        let optional_crc16 = result.get_crc16();
+        let result_crc16: String = optional_crc16.as_ref().unwrap().to_string();
+        // let val1 = optional_crc16.as_ref().unwrap();
+        // let result_crc16: String = match val1 {
+        //     value => value.value.to_string(),
+        // };
+
+        assert_eq!(result_crc16, expected_crc16);
+    }
+
+    #[test]
+    fn test_dump_iotext_to_str_without_measurements_with_crc16() {
+        let data_obj = IoTextDataRow::default();
+        let expected: String = "t|3900237526042,d|DEV_NAME_002,c|6E24".to_string();
+        let mut iotext_data_row = IoTextDataRow::default();
+
+        let s = iotext_data_row.timestamp_mut();
+        s.value = ItemTypeEnum::TimeUnixMilis(3900237526042);
+
+        let s = iotext_data_row.device_id_mut();
+        s.value = ItemTypeEnum::DeviceId("DEV_NAME_002".to_string());
+
+        // let crc16_mut_opt = iotext_data_row.crc16_mut();
+        //&crc16_mut_opt.unwrap().value = ItemTypeEnum::Crc("07A3".to_string());
+        //crc16_mut_opt.unwrap().value = ItemTypeEnum::Crc("07A3".to_string());
+
+        let result: String = data_obj.dump_iotext_to_str(&iotext_data_row, true);
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_dump_iotext_to_str_with_measurements_with_crc16() {
+        let data_obj = IoTextDataRow::default();
+        let expected: String =
+            "t|3900237526042,d|DEV_NAME_002,m|example_metric_name=d:12.07,c|3E3C".to_string();
+        let iotext_data_row = data_obj.parse_iotext_str(&expected);
+
+        let result: String = data_obj.dump_iotext_to_str(&iotext_data_row, true);
+
+        assert_eq!(result, expected);
     }
 }
