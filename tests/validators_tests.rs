@@ -3,9 +3,12 @@ mod validators_tests {
     // #[cfg(test)]
     // use pretty_assertions::assert_eq;
 
-    use iotext_rs::validators::{CrcError, MetricNameError, METRIC_NAME_MAX_LEN};
-    use iotext_rs::validators::{DeviceIdError, TimestampError, DEVICE_ID_MAX_LEN};
     use iotext_rs::validators::Validators;
+    use iotext_rs::validators::{
+        CrcError, MetricDataTypeError, MetricNameError, METRIC_NAME_MAX_LEN,
+    };
+    use iotext_rs::validators::{DeviceIdError, TimestampError, DEVICE_ID_MAX_LEN};
+    use iotext_rs::MetricDataTypes;
 
     #[test]
     fn test_valid_timestamp() {
@@ -70,7 +73,9 @@ mod validators_tests {
         let result = Validators::validate_device_id_str(device_id);
         assert!(result.is_err());
         match result.err().unwrap() {
-            DeviceIdError::DeviceIdExpectedOnlyAsciiCharacters(s) => assert_eq!(s, device_id.to_string()),
+            DeviceIdError::DeviceIdExpectedOnlyAsciiCharacters(s) => {
+                assert_eq!(s, device_id.to_string())
+            }
             _ => panic!("Unexpected error type"),
         }
     }
@@ -168,7 +173,6 @@ mod validators_tests {
         }
     }
 
-
     #[test]
     fn test_invalid_metric_name_is_empty() {
         let metric_name = "";
@@ -186,7 +190,9 @@ mod validators_tests {
         let result = Validators::validate_metric_name_str(metric_name);
         assert!(result.is_err());
         match result.err().unwrap() {
-            MetricNameError::MetricNameExpectedOnlyAsciiCharacters(s) => assert_eq!(s, metric_name.to_string()),
+            MetricNameError::MetricNameExpectedOnlyAsciiCharacters(s) => {
+                assert_eq!(s, metric_name.to_string())
+            }
             _ => panic!("Unexpected error type"),
         }
     }
@@ -232,4 +238,83 @@ mod validators_tests {
         }
     }
 
+    #[test]
+    fn test_invalid_metric_data_type_is_empty() {
+        let metric_data_type = "";
+        let metric_name = "test_metric888";
+        let result = Validators::validate_metric_data_type_str(metric_data_type, metric_name);
+        assert!(result.is_err());
+        match result.err().unwrap() {
+            MetricDataTypeError::MetricDataTypeIsEmpty(s) => {
+                assert_eq!(s, metric_data_type.to_string())
+            }
+            _ => panic!("Unexpected error type"),
+        }
+    }
+
+    #[test]
+    fn test_valid_metric_data_type_known_integer() {
+        let metric_data_type = MetricDataTypes::INTEGER;
+        let metric_name = "test_metric666";
+        let result = Validators::validate_metric_data_type_str(metric_data_type, metric_name);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), metric_data_type);
+    }
+
+    #[test]
+    fn test_valid_metric_data_type_known_bool() {
+        let metric_data_type = MetricDataTypes::BOOL;
+        let metric_name = "test_metric555";
+        let result = Validators::validate_metric_data_type_str(metric_data_type, metric_name);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), metric_data_type);
+    }
+
+    #[test]
+    fn test_valid_metric_data_type_known_text() {
+        let metric_data_type = MetricDataTypes::TEXT;
+        let metric_name = "test_metric444";
+        let result = Validators::validate_metric_data_type_str(metric_data_type, metric_name);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), metric_data_type);
+    }
+
+    #[test]
+    fn test_valid_metric_data_type_known_decimal() {
+        let metric_data_type = MetricDataTypes::DECIMAL;
+        let metric_name = "test_metric333";
+        let result = Validators::validate_metric_data_type_str(metric_data_type, metric_name);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), metric_data_type);
+    }
+
+    #[test]
+    fn test_invalid_metric_data_type_unknown() {
+        let metric_data_type = "UNKNOWN_TYPE";
+        let metric_name = "test_metric222";
+        let result = Validators::validate_metric_data_type_str(metric_data_type, metric_name);
+        assert!(result.is_err());
+        match result.err().unwrap() {
+            MetricDataTypeError::UnknownMetricDataType(data_type, name) => {
+                assert_eq!(data_type, metric_data_type.to_string());
+                assert_eq!(name, metric_name.to_string());
+            }
+            _ => panic!("Unexpected error type"),
+        }
+    }
+
+    #[test]
+    fn test_invalid_metric_data_type_contains_non_ascii() {
+        let metric_data_type = "非";
+        let metric_name = "test_metric111";
+        let result = Validators::validate_metric_data_type_str(metric_data_type, metric_name);
+        assert!(result.is_err());
+        match result.err().unwrap() {
+            MetricDataTypeError::UnknownMetricDataType(data_type, name) => {
+                assert_eq!(data_type, metric_data_type.to_string());
+                assert_eq!(name, metric_name.to_string());
+            }
+            _ => panic!("Unexpected error type"),
+        }
+    }
 }
