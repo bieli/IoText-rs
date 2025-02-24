@@ -225,9 +225,7 @@ impl IoTextData for IoTextDataRow {
                 // println!("\t\tmetric_parts_values: {:?}", metric_parts_values);
 
                 let parsed_metric_name =
-                    match validators::Validators::validate_metric_name_str(
-                        metric_parts[0],
-                    ) {
+                    match validators::Validators::validate_metric_name_str(metric_parts[0]) {
                         Ok(value) => value,
                         Err(err) => panic!("{}", err),
                     };
@@ -235,12 +233,12 @@ impl IoTextData for IoTextDataRow {
                 let metric_data_value = metric_parts_values[1];
                 let parsed_metric_data_type =
                     match validators::Validators::validate_metric_data_type_str(
-                        metric_data_type, parsed_metric_name
+                        metric_data_type,
+                        parsed_metric_name,
                     ) {
                         Ok(value) => value,
                         Err(err) => panic!("{}", err),
                     };
-
 
                 let metrics = iotext_data_row.metrics_mut();
                 metrics.get_or_insert(vec![]).push(MetricDataItem {
@@ -269,9 +267,7 @@ impl IoTextData for IoTextDataRow {
                     }
                     ItemTypes::DEVICE_ID => {
                         let parsed_value =
-                            match validators::Validators::validate_device_id_str(
-                                item_part[1],
-                            ) {
+                            match validators::Validators::validate_device_id_str(item_part[1]) {
                                 Ok(value) => value,
                                 Err(err) => panic!("{}", err),
                             };
@@ -291,9 +287,7 @@ impl IoTextData for IoTextDataRow {
                     }
                     ItemTypes::CRC => {
                         let parsed_value =
-                            match validators::Validators::validate_crc_str(
-                                item_part[1],
-                            ) {
+                            match validators::Validators::validate_crc_str(item_part[1]) {
                                 Ok(value) => value,
                                 Err(err) => panic!("{}", err),
                             };
