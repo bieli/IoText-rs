@@ -6,6 +6,8 @@ pub mod tools;
 pub use tools::CRC16_POLY_DEFAULT;
 pub use tools::*;
 
+pub mod validators;
+
 #[derive(Debug, Default)]
 pub struct MetricDataTypes {}
 
@@ -201,6 +203,7 @@ impl IoTextData for IoTextDataRow {
                 //);
                 MetricValueType::DecimalItemType(Decimal::from_str(metric_data_value).unwrap())
             }
+            //TODO: validate this concept - maybe we nee to have Error + panic here with unknown metric type
             _ => MetricValueType::TextItemType(String::new()),
         }
     }
@@ -215,34 +218,64 @@ impl IoTextData for IoTextDataRow {
             //println!("item_part: {:?}", item_part);
             let item_type_tmp: &str = item_part[0];
             if item_type_tmp.eq(ItemTypes::METRIC_ITEM) {
-                //println!("\tmetric: {}", item_part[1]);
+                // println!("\tmetric: {}", item_part[1]);
                 let metric_parts: Vec<&str> = item_part[1].split('=').collect();
-                //println!("\tmetric_parts: {:?}", metric_parts);
+                // println!("\tmetric_parts: {:?}", metric_parts);
                 let metric_parts_values: Vec<&str> = metric_parts[1].split(':').collect();
-                //println!("\t\tmetric_parts_values: {:?}", metric_parts_values);
+                // println!("\t\tmetric_parts_values: {:?}", metric_parts_values);
+
+                let parsed_metric_name =
+                    match validators::Validators::validate_metric_name_str(
+                        metric_parts[0],
+                    ) {
+                        Ok(value) => value,
+                        Err(err) => panic!("{}", err),
+                    };
+                let metric_data_type = metric_parts_values[0];
+                let metric_data_value = metric_parts_values[1];
+                let parsed_metric_data_type =
+                    match validators::Validators::validate_metric_data_type_str(
+                        metric_data_type, parsed_metric_name
+                    ) {
+                        Ok(value) => value,
+                        Err(err) => panic!("{}", err),
+                    };
+
 
                 let metrics = iotext_data_row.metrics_mut();
                 metrics.get_or_insert(vec![]).push(MetricDataItem {
-                    name: metric_parts[0].to_string(),
+                    name: parsed_metric_name.to_string(),
                     value: self
-                        .extract_metric_value_type(metric_parts_values[0], metric_parts_values[1]),
+                        .extract_metric_value_type(parsed_metric_data_type, metric_data_value),
                 });
             } else {
                 match item_part.first().unwrap().to_owned() {
                     ItemTypes::TIMESTAMP_MILIS => {
-                        let Ok(value) = item_part[1].parse::<u64>() else {
-                            todo!()
-                        };
+                        let parsed_value =
+                            match validators::Validators::validate_and_parse_timestamp_str(
+                                item_part[1],
+                            ) {
+                                Ok(value) => value,
+                                Err(err) => panic!("{}", err),
+                            };
                         //println!(
                         //    "\t\t\tTIMESTAMP_MILIS: {:?}",
                         //    ItemTypeEnum::TimeUnixMilis(value)
                         //);
                         {
                             let s = iotext_data_row.timestamp_mut();
-                            s.value = ItemTypeEnum::TimeUnixMilis(value);
+                            s.value = ItemTypeEnum::TimeUnixMilis(parsed_value);
                         }
                     }
                     ItemTypes::DEVICE_ID => {
+                        let parsed_value =
+                            match validators::Validators::validate_device_id_str(
+                                item_part[1],
+                            ) {
+                                Ok(value) => value,
+                                Err(err) => panic!("{}", err),
+                            };
+
                         //println!(
                         //    "\t\t\tDEVICE_ID: {:?}",
                         //    ItemTypeEnum::DeviceId(String::from(item_part[1]))
@@ -250,13 +283,20 @@ impl IoTextData for IoTextDataRow {
 
                         {
                             let s = iotext_data_row.device_id_mut();
-                            s.value = ItemTypeEnum::DeviceId(String::from(item_part[1]));
+                            s.value = ItemTypeEnum::DeviceId(String::from(parsed_value));
                         }
                     }
                     ItemTypes::METRIC_ITEM => {
                         //println!("\t\t\tMETRIC_ITEM: {}", String::from(item_part[1]));
                     }
                     ItemTypes::CRC => {
+                        let parsed_value =
+                            match validators::Validators::validate_crc_str(
+                                item_part[1],
+                            ) {
+                                Ok(value) => value,
+                                Err(err) => panic!("{}", err),
+                            };
                         // println!("\t\t\tCRC: {}", String::from(item_part[1]));
 
                         //let &mut crc16_mut = iotext_data_row.crc16_mut();
@@ -286,10 +326,10 @@ impl IoTextData for IoTextDataRow {
 
                         let optional_crc16_mut = iotext_data_row.crc16_mut();
                         optional_crc16_mut.get_or_insert_with(Item::default).value =
-                            ItemTypeEnum::Crc(item_part[1].to_string());
+                            ItemTypeEnum::Crc(parsed_value.to_string());
                     }
                     _val => {
-                        //println!("\t\t\t OTHER: {:?}", val);
+                        //println!("\t\t\t OTHER: metric_parts{:?}", val);
                     }
                 }
                 //println!("\t\tcontext: {}", item_part[1])
