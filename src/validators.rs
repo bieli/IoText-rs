@@ -65,6 +65,16 @@ pub enum MetricDataTypeError {
     UnknownMetricDataType(String, String),
 }
 
+/*
+#[derive(Error, Debug)]
+pub enum SpecialCharsError {
+    #[error(
+        "UnexpectedCharacter in name: {0} (unexpected characters: , : | =)"
+    )]
+    UnexpectedCharacter(String),
+}
+*/
+
 impl Validators {
     pub fn validate_and_parse_timestamp_str(timestamp_str: &str) -> Result<u64, TimestampError> {
         if !timestamp_str.chars().all(|c| c.is_digit(10)) {
@@ -162,4 +172,23 @@ impl Validators {
             )),
         }
     }
+    /*
+        pub fn validate_excluded_special_chars(name: &str) -> Result<String, SpecialCharsError> {
+            if [
+                SPECIAL_CHAR_DATA_ITEMS_SEP,
+                SPECIAL_CHAR_DATA_TYPES_AND_VALUES_SEP,
+                SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP,
+                SPECIAL_CHAR_SPLIT_DATA_ITEM_SEP,
+            ]
+            .iter()
+            .any(|&s| s == name)
+            {
+                return Err(SpecialCharsError::UnexpectedCharacter(
+                    name.to_string()
+                ))
+            }
+
+            Ok(name.to_string())
+        }
+    */
 }
