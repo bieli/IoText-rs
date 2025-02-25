@@ -8,6 +8,11 @@ pub use tools::*;
 
 pub mod validators;
 
+pub const SPECIAL_CHAR_DATA_ITEMS_SEP: &str = ",";
+pub const SPECIAL_CHAR_DATA_TYPES_AND_VALUES_SEP: &str = ":";
+pub const SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP: &str = "|";
+pub const SPECIAL_CHAR_SPLIT_DATA_ITEM_SEP: &str = "=";
+
 #[derive(Debug, Default)]
 pub struct MetricDataTypes {}
 
@@ -46,12 +51,43 @@ impl Default for MetricValueType {
 impl Display for MetricValueType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            MetricValueType::IntegerItemType(value) => write!(f, "i:{value:?}"),
-            MetricValueType::BoolItemType(value) => {
-                write!(f, "b:{}", if value.eq(&true) { "1" } else { "0" })
-            }
-            MetricValueType::DecimalItemType(value) => write!(f, "d:{value:?}"),
-            MetricValueType::TextItemType(value) => write!(f, "t:{value}"),
+            MetricValueType::IntegerItemType(value) => write!(
+                f,
+                "{}",
+                format!(
+                    "{}{}{value:?}",
+                    MetricDataTypes::INTEGER,
+                    SPECIAL_CHAR_DATA_TYPES_AND_VALUES_SEP
+                )
+            ),
+            MetricValueType::BoolItemType(value) => write!(
+                f,
+                "{}",
+                format!(
+                    "{}{}{}",
+                    MetricDataTypes::BOOL,
+                    SPECIAL_CHAR_DATA_TYPES_AND_VALUES_SEP,
+                    if value.eq(&true) { "1" } else { "0" }
+                )
+            ),
+            MetricValueType::DecimalItemType(value) => write!(
+                f,
+                "{}",
+                format!(
+                    "{}{}{value:?}",
+                    MetricDataTypes::DECIMAL,
+                    SPECIAL_CHAR_DATA_TYPES_AND_VALUES_SEP
+                )
+            ),
+            MetricValueType::TextItemType(value) => write!(
+                f,
+                "{}",
+                format!(
+                    "{}{}{value}",
+                    MetricDataTypes::TEXT,
+                    SPECIAL_CHAR_DATA_TYPES_AND_VALUES_SEP
+                )
+            ),
         }
     }
 }
@@ -66,9 +102,33 @@ pub enum ItemTypeEnum {
 impl Display for ItemTypeEnum {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ItemTypeEnum::TimeUnixMilis(value) => write!(f, "t|{:?}", value),
-            ItemTypeEnum::DeviceId(value) => write!(f, "d|{}", value),
-            ItemTypeEnum::Crc(value) => write!(f, "c|{}", value),
+            ItemTypeEnum::TimeUnixMilis(value) => write!(
+                f,
+                "{}",
+                format!(
+                    "{}{}{value:?}",
+                    ItemTypes::TIMESTAMP_MILIS,
+                    SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP
+                )
+            ),
+            ItemTypeEnum::DeviceId(value) => write!(
+                f,
+                "{}",
+                format!(
+                    "{}{}{value}",
+                    ItemTypes::DEVICE_ID,
+                    SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP
+                )
+            ),
+            ItemTypeEnum::Crc(value) => write!(
+                f,
+                "{}",
+                format!(
+                    "{}{}{value}",
+                    ItemTypes::CRC,
+                    SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP
+                )
+            ),
         }
     }
 }
@@ -88,7 +148,16 @@ pub struct MetricDataItem {
 impl Display for MetricDataItem {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let MetricDataItem { name, value } = self;
-        write!(f, "m|{name}={value}")
+        write!(
+            f,
+            "{}",
+            format!(
+                "{}{}{name}{}{value}",
+                ItemTypes::METRIC_ITEM,
+                SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP,
+                SPECIAL_CHAR_SPLIT_DATA_ITEM_SEP
+            )
+        )
     }
 }
 
@@ -98,11 +167,7 @@ pub struct Item {
 }
 impl fmt::Display for Item {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.value.to_string() //Tools::crc16(self.value.to_string().as_str(), CRC16_POLY_DEFAULT)
-        )
+        write!(f, "{}", self.value.to_string())
     }
 }
 
@@ -169,7 +234,7 @@ impl IoTextData for IoTextDataRow {
         match metric_data_type {
             MetricDataTypes::INTEGER => {
                 let Ok(value) = metric_data_value.parse::<i64>() else {
-                    todo!()
+                    panic!("Error with parsing INTEGER (i64) metric data value: '{metric_data_value}'!");
                 };
                 // println!(
                 //    "\t\t\tIntegerItemType: {:?}",
@@ -181,7 +246,9 @@ impl IoTextData for IoTextDataRow {
                 let value = match metric_data_value {
                     "1" => true,
                     "0" => false,
-                    _ => todo!(),
+                    _ => panic!(
+                        "Error with parsing BOOL metric data value: '{metric_data_value}' (expected '0' or '1')!"
+                    )
                 };
                 //println!(
                 //    "\t\t\tBoolItemType: {:?}",
@@ -231,6 +298,7 @@ impl IoTextData for IoTextDataRow {
                     };
                 let metric_data_type = metric_parts_values[0];
                 let metric_data_value = metric_parts_values[1];
+
                 let parsed_metric_data_type =
                     match validators::Validators::validate_metric_data_type_str(
                         metric_data_type,
@@ -266,6 +334,11 @@ impl IoTextData for IoTextDataRow {
                         }
                     }
                     ItemTypes::DEVICE_ID => {
+                        // match Validators::validate_excluded_special_chars(item_part[1]) {
+                        //     Err(err) => panic!("{}", err),
+                        //     _ => {}
+                        // }
+
                         let parsed_value =
                             match validators::Validators::validate_device_id_str(item_part[1]) {
                                 Ok(value) => value,
@@ -344,20 +417,24 @@ impl IoTextData for IoTextDataRow {
         }
 
         let msg_val: String = format!(
-            "{},{},{}",
+            "{}{}{}{}{}",
             iotext_data_row.get_timestamp(),
+            SPECIAL_CHAR_DATA_ITEMS_SEP,
             iotext_data_row.get_device_id(),
+            SPECIAL_CHAR_DATA_ITEMS_SEP,
             metrics_as_str
                 .iter()
                 .map(std::string::ToString::to_string)
                 .collect::<Vec<_>>()
-                .join(",")
+                .join(SPECIAL_CHAR_DATA_ITEMS_SEP)
         );
 
         let crc16_element: String = if add_crc16 == true {
             format!(
-                ",{}|{}",
+                "{}{}{}{}",
+                SPECIAL_CHAR_DATA_ITEMS_SEP,
                 ItemTypes::CRC,
+                SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP,
                 //format!("{}", msg_val.as_str())
                 Tools::crc16(msg_val.as_str(), CRC16_POLY_DEFAULT)
             )
@@ -378,6 +455,9 @@ impl IoTextData for IoTextDataRow {
         //     "".to_string()
         // };
 
-        msg_val.trim_end_matches(',').to_string() + &crc16_element
+        msg_val
+            .trim_end_matches(SPECIAL_CHAR_DATA_ITEMS_SEP)
+            .to_string()
+            + &crc16_element
     }
 }

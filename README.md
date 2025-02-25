@@ -21,14 +21,14 @@ use std::*;
 
 use iotext_rs::*;
 
-pub const MSG_EXAMPLE: &str = "t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|bulb_state=b:1,m|connector_state=b:0,m|temp_01=d:34.4,m|temp_02=d:36.4,m|temp_03=d:10.4,m|pwr=d:12.231,m|current=d:1.429,m|current_battery=d:1.548,m|status_txt=t:in_progress";
+pub const MSG_EXAMPLE: &str = "t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|bulb_state=b:1,m|connector_state=b:0,m|temp_01=d:34.4,m|temp_02=d:36.4,m|temp_03=d:10.4,m|pwr=d:12.231,m|current=d:1.429,m|current_battery=d:1.548,m|status_txt=t:in_progress,c|ECF6";
 
 fn main() {
     let data_obj = IoTextDataRow::default();
     let iotext_data_row = data_obj.parse_iotext_str(MSG_EXAMPLE);
     println!("iotext_data_row: {:#?}", iotext_data_row);
 
-    let str_from_iotext_data: String = data_obj.dump_iotext_to_str(&iotext_data_row);
+    let str_from_iotext_data: String = data_obj.dump_iotext_to_str(&iotext_data_row, true);
     println!("str_from_iotext_data: {}", str_from_iotext_data)
 }
 ```
@@ -56,7 +56,7 @@ More detailed statistics from `cargo bench` running you can see in bottom sectio
 
 ### Input example IoText data row
 ```bash
-t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|bulb_state=b:1,m|connector_state=b:0,m|temp_01=d:34.4,m|temp_02=d:36.4,m|temp_03=d:10.4,m|pwr=d:12.231,m|current=d:1.429,m|current_battery=d:1.548,m|status_txt=t:in_progress
+t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|bulb_state=b:1,m|connector_state=b:0,m|temp_01=d:34.4,m|temp_02=d:36.4,m|temp_03=d:10.4,m|pwr=d:12.231,m|current=d:1.429,m|current_battery=d:1.548,m|status_txt=t:in_progress,c|ECF6
 ```
 
 ### Parsing results (data from below example IoText data row)

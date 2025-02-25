@@ -317,4 +317,62 @@ mod validators_tests {
             _ => panic!("Unexpected error type"),
         }
     }
+
+    /*
+       #[test]
+       fn test_special_char_data_items_sep() {
+           let result = Validators::validate_excluded_special_chars(SPECIAL_CHAR_DATA_ITEMS_SEP);
+           assert!(result.is_err());
+           match result.err().unwrap() {
+               SpecialCharsError::UnexpectedCharacter(s) => assert_eq!(s, SPECIAL_CHAR_DATA_ITEMS_SEP),
+               _ => panic!("Unexpected error type"),
+           }
+       }
+
+       #[test]
+       fn test_special_char_data_types_and_values_sep() {
+           let result = Validators::validate_excluded_special_chars(SPECIAL_CHAR_DATA_TYPES_AND_VALUES_SEP);
+           assert!(result.is_err());
+           match result.err().unwrap() {
+               SpecialCharsError::UnexpectedCharacter(s) => assert_eq!(s, SPECIAL_CHAR_DATA_TYPES_AND_VALUES_SEP),
+               _ => panic!("Unexpected error type"),
+           }
+       }
+
+       #[test]
+       fn test_special_char_data_types_and_cmd_ctx_sep() {
+           let result = Validators::validate_excluded_special_chars(SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP);
+           assert!(result.is_err());
+           match result.err().unwrap() {
+               SpecialCharsError::UnexpectedCharacter(s) => assert_eq!(s, SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP),
+               _ => panic!("Unexpected error type"),
+           }
+       }
+
+       #[test]
+       fn test_special_char_split_data_item_sep() {
+           let result = Validators::validate_excluded_special_chars(SPECIAL_CHAR_SPLIT_DATA_ITEM_SEP);
+           assert!(result.is_err());
+           match result.err().unwrap() {
+               SpecialCharsError::UnexpectedCharacter(s) => assert_eq!(s, SPECIAL_CHAR_SPLIT_DATA_ITEM_SEP),
+               _ => panic!("Unexpected error type"),
+           }
+       }
+
+       #[test]
+       fn test_valid_name() {
+           let valid_name = "valid_name";
+           let result = Validators::validate_excluded_special_chars(valid_name);
+           assert!(result.is_ok());
+           assert_eq!(result.unwrap(), valid_name.to_string());
+       }
+
+       #[test]
+       fn test_valid_name_with_non_special_characters() {
+           let valid_name = "valid.name";
+           let result = Validators::validate_excluded_special_chars(valid_name);
+           assert!(result.is_ok());
+           assert_eq!(result.unwrap(), valid_name.to_string());
+       }
+    */
 }
