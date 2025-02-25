@@ -18,11 +18,14 @@ name = "iotext_rs_main"
 path = "src/main.rs"
 
 [dependencies]
-rust_decimal = "1.31"
-rust_decimal_macros = "1.31"
+rust_decimal = "1.36.0"
+rust_decimal_macros = "1.36.0"
+thiserror = "2"
+pretty_assertions = "1.4.1"
 
 [dev-dependencies]
-criterion = "0.3"
+criterion = "0.5.1"
+#cargo-tarpaulin = "0.32.0"
 #rand = "0.8.4"
 
 [[bench]]

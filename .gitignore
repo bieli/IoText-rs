@@ -18,3 +18,4 @@ Cargo.lock
 .idea/
 example/
 result.xml
+tarpaulin-report.html
