@@ -1,3 +1,4 @@
+use log::{debug, error, trace, warn};
 use rust_decimal::prelude::*;
 use std::fmt::Display;
 use std::*;
@@ -234,44 +235,48 @@ impl IoTextData for IoTextDataRow {
         match metric_data_type {
             MetricDataTypes::INTEGER => {
                 let Ok(value) = metric_data_value.parse::<i64>() else {
-                    panic!("Error with parsing INTEGER (i64) metric data value: '{metric_data_value}'!");
+                    let err_msg = format!("Error with parsing INTEGER (i64) metric data value: '{metric_data_value}'!");
+                    error!("{err_msg}");
+                    panic!("{}", err_msg);
                 };
-                // println!(
-                //    "\t\t\tIntegerItemType: {:?}",
-                //    MetricValueType::IntegerItemType(value)
-                //);
+                debug!(
+                    "IntegerItemType: {:?}",
+                    MetricValueType::IntegerItemType(value)
+                );
                 MetricValueType::IntegerItemType(value)
             }
             MetricDataTypes::BOOL => {
                 let value = match metric_data_value {
                     "1" => true,
                     "0" => false,
-                    _ => panic!(
-                        "Error with parsing BOOL metric data value: '{metric_data_value}' (expected '0' or '1')!"
-                    )
+                    _ => {
+                        let err_msg = format!("Error with parsing BOOL metric data value: '{metric_data_value}' (expected '0' or '1')!");
+                        error!("{err_msg}");
+                        panic!("{}", err_msg);
+                    }
                 };
-                //println!(
-                //    "\t\t\tBoolItemType: {:?}",
-                //   MetricValueType::BoolItemType(value)
-                //);
+                debug!("BoolItemType: {:?}", MetricValueType::BoolItemType(value));
                 MetricValueType::BoolItemType(value)
             }
             MetricDataTypes::TEXT => {
-                //println!(
-                //    "\t\t\tBoolItemType: {:?}",
-                //    MetricValueType::TextItemType(metric_data_value.to_string())
-                //);
+                debug!(
+                    "BoolItemType: {:?}",
+                    MetricValueType::TextItemType(metric_data_value.to_string())
+                );
                 MetricValueType::TextItemType(metric_data_value.to_string())
             }
             MetricDataTypes::DECIMAL => {
-                //println!(
-                //    "\t\t\tDecimalItemType: {:?}",
-                //    MetricValueType::DecimalItemType(Decimal::from_str(metric_data_value).unwrap())
-                //);
+                debug!(
+                    "DecimalItemType: {:?}",
+                    MetricValueType::DecimalItemType(Decimal::from_str(metric_data_value).unwrap())
+                );
                 MetricValueType::DecimalItemType(Decimal::from_str(metric_data_value).unwrap())
             }
             //TODO: validate this concept - maybe we nee to have Error + panic here with unknown metric type
-            _ => MetricValueType::TextItemType(String::new()),
+            _ => {
+                warn!("Unknown MetricDataType - used TEXT with empty String as default type!");
+                MetricValueType::TextItemType(String::new())
+            }
         }
     }
 
@@ -280,21 +285,24 @@ impl IoTextData for IoTextDataRow {
         let item_parts: Vec<&str> = data_row.split(',').collect();
 
         for part in item_parts {
-            //println!("part: {}", part);
+            trace!("part: {}", part);
             let item_part: Vec<&str> = part.split('|').collect();
-            //println!("item_part: {:?}", item_part);
+            trace!("item_part: {:?}", item_part);
             let item_type_tmp: &str = item_part[0];
             if item_type_tmp.eq(ItemTypes::METRIC_ITEM) {
-                // println!("\tmetric: {}", item_part[1]);
+                trace!("metric: {}", item_part[1]);
                 let metric_parts: Vec<&str> = item_part[1].split('=').collect();
-                // println!("\tmetric_parts: {:?}", metric_parts);
+                trace!("metric_parts: {:?}", metric_parts);
                 let metric_parts_values: Vec<&str> = metric_parts[1].split(':').collect();
-                // println!("\t\tmetric_parts_values: {:?}", metric_parts_values);
+                trace!("metric_parts_values: {:?}", metric_parts_values);
 
                 let parsed_metric_name =
                     match validators::Validators::validate_metric_name_str(metric_parts[0]) {
                         Ok(value) => value,
-                        Err(err) => panic!("{}", err),
+                        Err(err) => {
+                            error!("{err}");
+                            panic!("{}", err)
+                        }
                     };
                 let metric_data_type = metric_parts_values[0];
                 let metric_data_value = metric_parts_values[1];
@@ -305,7 +313,10 @@ impl IoTextData for IoTextDataRow {
                         parsed_metric_name,
                     ) {
                         Ok(value) => value,
-                        Err(err) => panic!("{}", err),
+                        Err(err) => {
+                            error!("{err}");
+                            panic!("{}", err)
+                        }
                     };
 
                 let metrics = iotext_data_row.metrics_mut();
@@ -322,33 +333,34 @@ impl IoTextData for IoTextDataRow {
                                 item_part[1],
                             ) {
                                 Ok(value) => value,
-                                Err(err) => panic!("{}", err),
+                                Err(err) => {
+                                    error!("{err}");
+                                    panic!("{}", err)
+                                }
                             };
-                        //println!(
-                        //    "\t\t\tTIMESTAMP_MILIS: {:?}",
-                        //    ItemTypeEnum::TimeUnixMilis(value)
-                        //);
+                        debug!(
+                            "TIMESTAMP_MILIS: {:?}",
+                            ItemTypeEnum::TimeUnixMilis(parsed_value)
+                        );
                         {
                             let s = iotext_data_row.timestamp_mut();
                             s.value = ItemTypeEnum::TimeUnixMilis(parsed_value);
                         }
                     }
                     ItemTypes::DEVICE_ID => {
-                        // match Validators::validate_excluded_special_chars(item_part[1]) {
-                        //     Err(err) => panic!("{}", err),
-                        //     _ => {}
-                        // }
-
                         let parsed_value =
                             match validators::Validators::validate_device_id_str(item_part[1]) {
                                 Ok(value) => value,
-                                Err(err) => panic!("{}", err),
+                                Err(err) => {
+                                    error!("{err}");
+                                    panic!("{}", err)
+                                }
                             };
 
-                        //println!(
-                        //    "\t\t\tDEVICE_ID: {:?}",
-                        //    ItemTypeEnum::DeviceId(String::from(item_part[1]))
-                        //);
+                        debug!(
+                            "DEVICE_ID: {:?}",
+                            ItemTypeEnum::DeviceId(String::from(item_part[1]))
+                        );
 
                         {
                             let s = iotext_data_row.device_id_mut();
@@ -356,15 +368,18 @@ impl IoTextData for IoTextDataRow {
                         }
                     }
                     ItemTypes::METRIC_ITEM => {
-                        //println!("\t\t\tMETRIC_ITEM: {}", String::from(item_part[1]));
+                        debug!("METRIC_ITEM: {}", String::from(item_part[1]));
                     }
                     ItemTypes::CRC => {
                         let parsed_value =
                             match validators::Validators::validate_crc_str(item_part[1]) {
                                 Ok(value) => value,
-                                Err(err) => panic!("{}", err),
+                                Err(err) => {
+                                    error!("{err}");
+                                    panic!("{}", err)
+                                }
                             };
-                        // println!("\t\t\tCRC: {}", String::from(item_part[1]));
+                        debug!("CRC: {}", String::from(item_part[1]));
 
                         //let &mut crc16_mut = iotext_data_row.crc16_mut();
 
@@ -396,10 +411,10 @@ impl IoTextData for IoTextDataRow {
                             ItemTypeEnum::Crc(parsed_value.to_string());
                     }
                     _val => {
-                        //println!("\t\t\t OTHER: metric_parts{:?}", val);
+                        warn!("OTHER: metric_parts{:?}", _val);
                     }
                 }
-                //println!("\t\tcontext: {}", item_part[1])
+                trace!("context: {}", item_part[1])
             }
         }
         iotext_data_row
@@ -435,25 +450,11 @@ impl IoTextData for IoTextDataRow {
                 SPECIAL_CHAR_DATA_ITEMS_SEP,
                 ItemTypes::CRC,
                 SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP,
-                //format!("{}", msg_val.as_str())
                 Tools::crc16(msg_val.as_str(), CRC16_POLY_DEFAULT)
             )
         } else {
             "".to_string()
         };
-
-        // let crc16_element: String = if add_crc16 {
-        //     match &iotext_data_row.get_crc16() {
-        //         Some(_) => {
-        //             let crc16 = Tools::crc16("ABCD", CRC16_POLY_DEFAULT);
-        //             //format!(",{}|{}", ItemTypes::CRC, val.to_string())
-        //             format!(",{}|{}", ItemTypes::CRC, crc16)
-        //         },
-        //         None => "".to_string(),
-        //     }
-        // } else {
-        //     "".to_string()
-        // };
 
         msg_val
             .trim_end_matches(SPECIAL_CHAR_DATA_ITEMS_SEP)
