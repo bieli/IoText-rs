@@ -3,6 +3,7 @@ use rust_decimal::prelude::*;
 use std::fmt::Display;
 use std::*;
 
+pub mod builder;
 pub mod tools;
 pub use tools::CRC16_POLY_DEFAULT;
 pub use tools::*;
@@ -35,7 +36,7 @@ impl ItemTypes {
     //TODO: pub const HEALTH_CHECK: &'static str = "h";
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum MetricValueType {
     IntegerItemType(i64),
     BoolItemType(bool),
@@ -140,10 +141,10 @@ impl Default for ItemTypeEnum {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct MetricDataItem {
-    name: String,
-    value: MetricValueType,
+    pub name: String,
+    pub value: MetricValueType,
 }
 
 impl Display for MetricDataItem {
@@ -223,6 +224,21 @@ impl IoTextDataRow {
 
     pub fn crc16_mut(&mut self) -> &mut Option<Item> {
         &mut self.crc16
+    }
+
+    fn prepare_crc16_str(add_crc16: bool, msg_val: &String) -> String {
+        let crc16_element: String = if add_crc16 == true {
+            format!(
+                "{}{}{}{}",
+                SPECIAL_CHAR_DATA_ITEMS_SEP,
+                ItemTypes::CRC,
+                SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP,
+                Tools::crc16(msg_val.as_str(), CRC16_POLY_DEFAULT)
+            )
+        } else {
+            "".to_string()
+        };
+        crc16_element
     }
 }
 
@@ -381,31 +397,6 @@ impl IoTextData for IoTextDataRow {
                             };
                         debug!("CRC: {}", String::from(item_part[1]));
 
-                        //let &mut crc16_mut = iotext_data_row.crc16_mut();
-
-                        // let &mut optional_crc16_mut = iotext_data_row.crc16_mut();
-                        // optional_crc16_mut.unwrap().value = ItemTypeEnum::Crc(
-                        //             item_part[1].to_string()
-                        // )
-
-                        //let optional_crc16_mut = iotext_data_row.crc16_mut();
-                        //optional_crc16_mut.as_mut().unwrap().value = ItemTypeEnum::Crc(
-                        //    item_part[1].to_string()
-                        //)
-
-                        // let optional_crc16_mut = iotext_data_row.crc16_mut();
-                        // match optional_crc16_mut.as_mut() {
-                        //     Some(item) => item.value =
-                        //         ItemTypeEnum::Crc(item_part[1].to_string()),
-                        //     None => {}
-                        // }
-
-                        // let optional_crc16_mut = iotext_data_row.crc16_mut();
-                        // optional_crc16_mut.as_mut().unwrap().value =
-                        // Item {
-                        //     value: ItemTypeEnum::Crc(item_part[1].to_string())
-                        // }.value
-
                         let optional_crc16_mut = iotext_data_row.crc16_mut();
                         optional_crc16_mut.get_or_insert_with(Item::default).value =
                             ItemTypeEnum::Crc(parsed_value.to_string());
@@ -444,21 +435,9 @@ impl IoTextData for IoTextDataRow {
                 .join(SPECIAL_CHAR_DATA_ITEMS_SEP)
         );
 
-        let crc16_element: String = if add_crc16 == true {
-            format!(
-                "{}{}{}{}",
-                SPECIAL_CHAR_DATA_ITEMS_SEP,
-                ItemTypes::CRC,
-                SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP,
-                Tools::crc16(msg_val.as_str(), CRC16_POLY_DEFAULT)
-            )
-        } else {
-            "".to_string()
-        };
-
         msg_val
             .trim_end_matches(SPECIAL_CHAR_DATA_ITEMS_SEP)
             .to_string()
-            + &crc16_element
+            + &Self::prepare_crc16_str(add_crc16, &msg_val)
     }
 }
