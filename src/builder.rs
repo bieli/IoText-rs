@@ -114,7 +114,6 @@ impl IoTextBuilder {
             }
         };
 
-        // Extract the metric value before modifying metrics
         let metric_value = self
             .iotext_data_row
             .extract_metric_value_type(metric_data_type, value);
@@ -127,7 +126,6 @@ impl IoTextBuilder {
         self
     }
 
-    // Build the IoText data structure
     pub fn build(self, add_crc: bool) -> Result<IoTextDataRow, IoTextBuilderError> {
         trace!("IoTextBuilder::build - add_crc: {:?}", add_crc);
 

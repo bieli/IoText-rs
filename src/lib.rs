@@ -397,31 +397,6 @@ impl IoTextData for IoTextDataRow {
                             };
                         debug!("CRC: {}", String::from(item_part[1]));
 
-                        //let &mut crc16_mut = iotext_data_row.crc16_mut();
-
-                        // let &mut optional_crc16_mut = iotext_data_row.crc16_mut();
-                        // optional_crc16_mut.unwrap().value = ItemTypeEnum::Crc(
-                        //             item_part[1].to_string()
-                        // )
-
-                        //let optional_crc16_mut = iotext_data_row.crc16_mut();
-                        //optional_crc16_mut.as_mut().unwrap().value = ItemTypeEnum::Crc(
-                        //    item_part[1].to_string()
-                        //)
-
-                        // let optional_crc16_mut = iotext_data_row.crc16_mut();
-                        // match optional_crc16_mut.as_mut() {
-                        //     Some(item) => item.value =
-                        //         ItemTypeEnum::Crc(item_part[1].to_string()),
-                        //     None => {}
-                        // }
-
-                        // let optional_crc16_mut = iotext_data_row.crc16_mut();
-                        // optional_crc16_mut.as_mut().unwrap().value =
-                        // Item {
-                        //     value: ItemTypeEnum::Crc(item_part[1].to_string())
-                        // }.value
-
                         let optional_crc16_mut = iotext_data_row.crc16_mut();
                         optional_crc16_mut.get_or_insert_with(Item::default).value =
                             ItemTypeEnum::Crc(parsed_value.to_string());
