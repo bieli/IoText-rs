@@ -38,6 +38,110 @@ fn main() {
 }
 ```
 
+### Example library code usage without CRC (BUILDER pattern usage with IoTextBuilder)
+
+```rust
+
+    // ------------------
+    // BUILDER EXAMPLE WITHOUT CRC
+    // ------------------
+
+    let iotext_data_row_from_builder_without_crc = IoTextBuilder::new()
+        .current_timestamp()
+        // .timestamp(3900237526042)
+        .device_id("device_name_001")
+        .add_metric_as_str("val_water_001", "1234", "i")
+        .add_metric_as_str("val_water_002", "15", "i")
+        .add_metric_as_str("bulb_state", "1", "b")
+        .add_metric("connector_state", MetricValueType::BoolItemType(false))
+        .add_metric(
+            "temp_01",
+            MetricValueType::DecimalItemType(
+                Decimal::from_f64(34.4).expect("Could not convert value to decimal!"),
+            ),
+        )
+        .add_metric(
+            "temp_02",
+            MetricValueType::DecimalItemType(
+                Decimal::from_f64(36.4).expect("Could not convert value to decimal!"),
+            ),
+        )
+        .add_metric_as_str("temp_03", "10.4", "d")
+        .add_metric_as_str("pwr", "12.231", "d")
+        .add_metric_as_str("current", "1.429", "d")
+        .add_metric(
+            "current_battery",
+            MetricValueType::DecimalItemType(
+                Decimal::from_f64(1.548).expect("Could not convert value to decimal!"),
+            ),
+        )
+        .add_metric(
+            "status_txt",
+            MetricValueType::TextItemType("in_progress".to_string()),
+        )
+        .build(false)
+        .unwrap();
+
+    println!(
+        "iotext_data_row as STR without CRC: {:?}",
+        data_obj.dump_iotext_to_str(
+            &iotext_data_row_from_builder_without_crc,
+            !iotext_data_row_from_builder_without_crc.crc16.is_none()
+        )
+    );
+```
+
+### Example library code usage with CRC (BUILDER pattern usage with IoTextBuilder)
+
+```rust
+    // ------------------
+    // BUILDER EXAMPLE WITH CRC
+    // ------------------
+
+    let iotext_data_row_from_builder_with_crc = IoTextBuilder::new()
+        .timestamp(3900237526042)
+        .device_id("device_name_001")
+        .add_metric_as_str("val_water_001", "1234", "i")
+        .add_metric_as_str("val_water_002", "15", "i")
+        .add_metric_as_str("bulb_state", "1", "b")
+        .add_metric("connector_state", MetricValueType::BoolItemType(false))
+        .add_metric(
+            "temp_01",
+            MetricValueType::DecimalItemType(
+                Decimal::from_f64(34.4).expect("Could not convert value to decimal!"),
+            ),
+        )
+        .add_metric(
+            "temp_02",
+            MetricValueType::DecimalItemType(
+                Decimal::from_f64(36.4).expect("Could not convert value to decimal!"),
+            ),
+        )
+        .add_metric_as_str("temp_03", "10.4", "d")
+        .add_metric_as_str("pwr", "12.231", "d")
+        .add_metric_as_str("current", "1.429", "d")
+        .add_metric(
+            "current_battery",
+            MetricValueType::DecimalItemType(
+                Decimal::from_f64(1.548).expect("Could not convert value to decimal!"),
+            ),
+        )
+        .add_metric(
+            "status_txt",
+            MetricValueType::TextItemType("in_progress".to_string()),
+        )
+        .build(true)
+        .unwrap();
+
+    println!(
+        "iotext_data_row as STR with CRC: {:?}",
+        data_obj.dump_iotext_to_str(
+            &iotext_data_row_from_builder_with_crc,
+            !iotext_data_row_from_builder_with_crc.crc16.is_none()
+        )
+    );
+```
+
 ## Benchmark synthetics tests - guaranty of linear inc. parsing time depends IoText metrics count
 
 Table with tests results:
