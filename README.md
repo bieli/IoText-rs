@@ -159,6 +159,8 @@ Table with tests results:
 **Based on the below data in avg. 1 second time, we can parse avg. 24000 IoText data messages (with 200 metrics per msg.) with this RUST implementation.**
 **It is quite an impressive result and of course, expected !!!**
 
+![Benches](assets/bieli__IoText-rs-__IoT_data-protocol-benchmark_01.png?raw=true "Benches")
+
 Tests were prepared on a machine with Intel(R) Core(TM) i7-8850H CPU @ 2.60GHz 6-cores processor and 32GB RAM. With `load average: 1,44, 2,49, 3,51` (info from `upime` cmd) and approx. 80% RAM used. Linux kernel 5.15 and distribution Linux Ubuntu 20.04.6 LTS.
 
 More detailed statistics from `cargo bench` running you can see in bottom section `Example cargo bench outputs`.
