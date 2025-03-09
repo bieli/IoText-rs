@@ -15,6 +15,9 @@ use iotext_rs::ItemTypeEnum;
 use chrono::Utc;
 
 
+const device_id: &str = "wind_turbine_01";
+
+
 fn get_unix_timestamp_with_milliseconds() -> u64 {
     let now = Utc::now();
     now.timestamp_millis().try_into().unwrap()
@@ -32,7 +35,7 @@ async fn main() -> io::Result<()> {
     let mut stream = TcpStream::connect(addr).await?;
 
     let mut speed: i32 = 0;
-    let wind_dirs = vec!["W", "N", "S", "E"];
+    let wind_dirs = vec!["N", "E", "S", "W"];
     let mut wind_dir_index = 0;
     let mut warnings_cnt: i32 = 0;
 
@@ -106,7 +109,7 @@ async fn main() -> io::Result<()> {
                         value: ItemTypeEnum::TimeUnixMilis(get_unix_timestamp_with_milliseconds()),
                     },
                     device_id: Item {
-                        value: ItemTypeEnum::DeviceId("wind_turbine_01".to_string()),
+                        value: ItemTypeEnum::DeviceId(device_id.to_string()),
                     },
                     metrics: Some(metrics),
                     crc16: None,
