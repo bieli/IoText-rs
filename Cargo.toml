@@ -5,7 +5,6 @@ edition = "2021"
 authors = ["Marcin Bielak <marcin.bieli+IoTextrsgithub@gmail.com>"]
 description = "RUST implementation of IoText data protocol."
 repository = "https://github.com/bieli/IoText-rs"
-homepage = "https://github.com/bieli/IoText-rs"
 license = "Apache-2.0"
 keywords = ["IoT", "IoText", "data", "protocol"]
 
