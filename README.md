@@ -17,8 +17,6 @@ IoText data protocol specification is here: https://github.com/bieli/IoText-data
 ### Example library code usage (parsing String with IoText row and preparing String from IoText MSG_EXAMPLE row)
 
 ```rust
-use std::*;
-
 use env_logger::Builder;
 use log::LevelFilter;
 
@@ -26,17 +24,48 @@ use iotext_rs::*;
 
 pub const MSG_EXAMPLE: &str = "t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|bulb_state=b:1,m|connector_state=b:0,m|temp_01=d:34.4,m|temp_02=d:36.4,m|temp_03=d:10.4,m|pwr=d:12.231,m|current=d:1.429,m|current_battery=d:1.548,m|status_txt=t:in_progress,c|ECF6";
 
-fn main() {
+fn main() -> Result<(), IoTextError> {
     Builder::new().filter(None, LevelFilter::Error).init();
 
-    let data_obj = IoTextDataRow::default();
-    let iotext_data_row = data_obj.parse_iotext_str(MSG_EXAMPLE);
-    println!("iotext_data_row: {:#?}", iotext_data_row);
+    // Parsing never panics - malformed input, wrong CRC etc. are returned as `IoTextError`.
+    let iotext_data_row: IoTextDataRow = MSG_EXAMPLE.parse()?;
+    println!("iotext_data_row: {iotext_data_row:#?}");
 
-    let str_from_iotext_data: String = data_obj.dump_iotext_to_str(&iotext_data_row, true);
-    println!("str_from_iotext_data: {}", str_from_iotext_data)
+    // `Display` appends a freshly computed CRC when `crc16` is `Some`;
+    // use `to_iotext_string(add_crc16)` to choose explicitly.
+    let str_from_iotext_data: String = iotext_data_row.to_string();
+    println!("str_from_iotext_data: {str_from_iotext_data}");
+    Ok(())
 }
 ```
+
+### Error handling
+
+```rust
+use iotext_rs::{IoTextDataRow, IoTextError};
+
+match "t|1,d|dev,c|0000".parse::<IoTextDataRow>() {
+    Err(IoTextError::CrcMismatch { received, computed }) => eprintln!("bad CRC {received} != {computed}"),
+    Err(other) => eprintln!("invalid message: {other}"),
+    Ok(row) => println!("{row}"),
+}
+```
+
+### Migrating from 0.5.x to 0.6.0
+
+| 0.5.x | 0.6.0 |
+|---|---|
+| `IoTextDataRow::default().parse_iotext_str(s)` (panics) | `s.parse::<IoTextDataRow>()?` |
+| `data_obj.dump_iotext_to_str(&row, add_crc)` | `row.to_iotext_string(add_crc)` or `row.to_string()` |
+| `data_obj.extract_metric_value_type(t, v)` | `MetricValueType::from_type_and_value(t, v)?` |
+| `IoTextBuilderError::TimestampIsEmpty / DeviceIdIsEmpty` | `IoTextError::MissingTimestamp / MissingDeviceId` |
+| builder setters panic on invalid input | first error is returned by `build()` |
+| unknown metric type stored as empty TEXT | `IoTextError::MetricDataType(..)` |
+| CRC item parsed but not verified | CRC verified; must be the last item |
+| CRC of message without metrics covered a trailing `,` | CRC covers exactly the bytes before `,c\|` |
+| separators allowed in device id / metric name | `, : \| =` rejected; `,` rejected in TEXT values |
+
+The old `IoTextData` trait is still available (deprecated) and now returns `Result`.
 
 ### Example library code usage without CRC (BUILDER pattern usage with IoTextBuilder)
 
@@ -79,15 +108,11 @@ fn main() {
             "status_txt",
             MetricValueType::TextItemType("in_progress".to_string()),
         )
-        .build(false)
-        .unwrap();
+        .build(false)?;
 
     println!(
         "iotext_data_row as STR without CRC: {:?}",
-        data_obj.dump_iotext_to_str(
-            &iotext_data_row_from_builder_without_crc,
-            !iotext_data_row_from_builder_without_crc.crc16.is_none()
-        )
+        iotext_data_row_from_builder_without_crc.to_string()
     );
 ```
 
@@ -130,15 +155,11 @@ fn main() {
             "status_txt",
             MetricValueType::TextItemType("in_progress".to_string()),
         )
-        .build(true)
-        .unwrap();
+        .build(true)?;
 
     println!(
         "iotext_data_row as STR with CRC: {:?}",
-        data_obj.dump_iotext_to_str(
-            &iotext_data_row_from_builder_with_crc,
-            !iotext_data_row_from_builder_with_crc.crc16.is_none()
-        )
+        iotext_data_row_from_builder_with_crc.to_string()
     );
 ```
 
