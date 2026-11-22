@@ -1,4 +1,4 @@
-//! Property-based tests for the IoText parser / serializer.
+//! Property-based tests for the `IoText` parser / serializer.
 //!
 //! Invariants checked here:
 //! 1. Parsing never panics, whatever the input.
@@ -6,7 +6,7 @@
 //! 3. A CRC-protected message with any single byte changed is never accepted.
 
 use iotext_rs::{
-    crc16, crc16_with_poly, IoTextDataRow, IoTextError, MetricDataItem, MetricKind, MetricValueType,
+    IoTextDataRow, IoTextError, MetricDataItem, MetricKind, MetricValueType, crc16, crc16_with_poly,
 };
 use proptest::prelude::*;
 use proptest::test_runner::FileFailurePersistence;

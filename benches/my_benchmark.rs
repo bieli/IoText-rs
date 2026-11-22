@@ -1,4 +1,7 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+//! Parser throughput benchmarks for 10-200 metrics per message.
+#![allow(clippy::similar_names, clippy::missing_panics_doc, missing_docs)]
+
+use criterion::{Criterion, criterion_group, criterion_main};
 use iotext_rs::IoTextDataRow;
 use std::hint::black_box;
 /*
@@ -42,13 +45,21 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         "{MSG_EXAMPLE_10_METRICS_FIRST}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}"
     );
 
-    let msg_example_40_metrics: String = format!("{MSG_EXAMPLE_10_METRICS_FIRST}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}");
+    let msg_example_40_metrics: String = format!(
+        "{MSG_EXAMPLE_10_METRICS_FIRST}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}"
+    );
 
-    let msg_example_50_metrics: String = format!("{MSG_EXAMPLE_10_METRICS_FIRST}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}");
+    let msg_example_50_metrics: String = format!(
+        "{MSG_EXAMPLE_10_METRICS_FIRST}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}"
+    );
 
-    let msg_example_100_metrics: String = format!("{MSG_EXAMPLE_10_METRICS_FIRST}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}");
+    let msg_example_100_metrics: String = format!(
+        "{MSG_EXAMPLE_10_METRICS_FIRST}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}"
+    );
 
-    let msg_example_200_metrics: String = format!("{MSG_EXAMPLE_10_METRICS_FIRST}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}");
+    let msg_example_200_metrics: String = format!(
+        "{MSG_EXAMPLE_10_METRICS_FIRST}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}"
+    );
 
     // Guard: every fixture must be a valid message, otherwise we benchmark the error path.
     for (name, msg) in [
@@ -67,31 +78,31 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     }
 
     c.bench_function("parse_iotext_str - 10 metrics", |b| {
-        b.iter(|| black_box(MSG_EXAMPLE_10_METRICS_FIRST).parse::<IoTextDataRow>())
+        b.iter(|| black_box(MSG_EXAMPLE_10_METRICS_FIRST).parse::<IoTextDataRow>());
     });
 
     c.bench_function("parse_iotext_str - 20 metrics", |b| {
-        b.iter(|| black_box(msg_example_20_metrics.as_str()).parse::<IoTextDataRow>())
+        b.iter(|| black_box(msg_example_20_metrics.as_str()).parse::<IoTextDataRow>());
     });
 
     c.bench_function("parse_iotext_str - 30 metrics", |b| {
-        b.iter(|| black_box(msg_example_30_metrics.as_str()).parse::<IoTextDataRow>())
+        b.iter(|| black_box(msg_example_30_metrics.as_str()).parse::<IoTextDataRow>());
     });
 
     c.bench_function("parse_iotext_str - 40 metrics", |b| {
-        b.iter(|| black_box(msg_example_40_metrics.as_str()).parse::<IoTextDataRow>())
+        b.iter(|| black_box(msg_example_40_metrics.as_str()).parse::<IoTextDataRow>());
     });
 
     c.bench_function("parse_iotext_str - 50 metrics", |b| {
-        b.iter(|| black_box(msg_example_50_metrics.as_str()).parse::<IoTextDataRow>())
+        b.iter(|| black_box(msg_example_50_metrics.as_str()).parse::<IoTextDataRow>());
     });
 
     c.bench_function("parse_iotext_str - 100 metrics", |b| {
-        b.iter(|| black_box(msg_example_100_metrics.as_str()).parse::<IoTextDataRow>())
+        b.iter(|| black_box(msg_example_100_metrics.as_str()).parse::<IoTextDataRow>());
     });
 
     c.bench_function("parse_iotext_str - 200 metrics", |b| {
-        b.iter(|| black_box(msg_example_200_metrics.as_str()).parse::<IoTextDataRow>())
+        b.iter(|| black_box(msg_example_200_metrics.as_str()).parse::<IoTextDataRow>());
     });
 }
 

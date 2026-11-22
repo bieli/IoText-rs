@@ -3,7 +3,16 @@ all:
 	make test
 
 test:
-	cargo test
+	cargo test --all-features
+example:
+	cargo run --example basic_usage
+check-nostd:
+	rustup target add thumbv6m-none-eabi
+	cargo build --lib --no-default-features --features serde --target thumbv6m-none-eabi
+msrv:
+	cargo +1.85 check --lib --all-features
+doc:
+	RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
 build:
 	cargo clean
 	cargo build

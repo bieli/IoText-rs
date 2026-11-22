@@ -1,6 +1,10 @@
 //! CRC-16 used by the `c|XXXX` item (reflected, polynomial `0xA001`, init `0xFFFF`,
 //! a.k.a. CRC-16/MODBUS).
 
+use alloc::format;
+use alloc::string::String;
+
+/// Reflected CRC-16 polynomial used by the protocol.
 pub const CRC16_POLY_DEFAULT: u32 = 0xA001;
 
 /// Bitwise CRC-16 for an arbitrary reflected polynomial (reference implementation).
@@ -80,6 +84,7 @@ pub fn crc16_to_hex(crc: u16) -> String {
     format!("{crc:04X}")
 }
 
+/// Pre-1.0 namespace for the CRC helper.
 pub struct Tools;
 
 impl Tools {

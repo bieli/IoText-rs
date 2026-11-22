@@ -23,24 +23,39 @@
         clippy::indexing_slicing
     )
 )]
+#![no_std]
 
+extern crate alloc;
+#[cfg(feature = "std")]
+extern crate std;
+
+use alloc::format;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+use core::fmt;
+use core::str::FromStr;
 use log::trace;
 use rust_decimal::Decimal;
-use std::fmt;
-use std::str::FromStr;
 
+/// Fluent [`IoTextBuilder`](builder::IoTextBuilder) for composing messages.
 pub mod builder;
+/// The crate-wide [`IoTextError`].
 pub mod error;
 pub mod tools;
+/// Field validators used by the parser and builder.
 pub mod validators;
 
 pub use error::IoTextError;
 pub use tools::*;
 use validators::Validators;
 
+/// Separates items: `t|1,d|dev`.
 pub const SPECIAL_CHAR_DATA_ITEMS_SEP: &str = ",";
+/// Separates a metric data type from its value: `i:42`.
 pub const SPECIAL_CHAR_DATA_TYPES_AND_VALUES_SEP: &str = ":";
+/// Separates an item type from its content: `t|1`.
 pub const SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP: &str = "|";
+/// Separates a metric name from its typed value: `name=i:42`.
 pub const SPECIAL_CHAR_SPLIT_DATA_ITEM_SEP: &str = "=";
 
 // ---------------------------------------------------------------------------
@@ -49,6 +64,7 @@ pub const SPECIAL_CHAR_SPLIT_DATA_ITEM_SEP: &str = "=";
 
 /// Data type of a metric value: the code between `=` and `:` in `m|name=<code>:value`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum MetricKind {
     /// `i` - signed 64-bit integer.
@@ -89,7 +105,7 @@ impl MetricKind {
 }
 
 impl fmt::Display for MetricKind {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.code())
     }
 }
@@ -104,6 +120,7 @@ impl FromStr for MetricKind {
 
 /// Item type of a message part: the code before `|`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum ItemKind {
     /// `t` - UNIX timestamp in milliseconds.
@@ -144,7 +161,7 @@ impl ItemKind {
 }
 
 impl fmt::Display for ItemKind {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.code())
     }
 }
@@ -159,9 +176,13 @@ pub struct MetricDataTypes {}
 
 #[allow(deprecated)]
 impl MetricDataTypes {
+    /// Code of [`MetricKind::Integer`].
     pub const INTEGER: &'static str = MetricKind::Integer.code();
+    /// Code of [`MetricKind::Bool`].
     pub const BOOL: &'static str = MetricKind::Bool.code();
+    /// Code of [`MetricKind::Decimal`].
     pub const DECIMAL: &'static str = MetricKind::Decimal.code();
+    /// Code of [`MetricKind::Text`].
     pub const TEXT: &'static str = MetricKind::Text.code();
 }
 
@@ -175,9 +196,13 @@ pub struct ItemTypes {}
 
 #[allow(deprecated)]
 impl ItemTypes {
+    /// Code of [`ItemKind::Timestamp`].
     pub const TIMESTAMP_MILIS: &'static str = ItemKind::Timestamp.code();
+    /// Code of [`ItemKind::DeviceId`].
     pub const DEVICE_ID: &'static str = ItemKind::DeviceId.code();
+    /// Code of [`ItemKind::Metric`].
     pub const METRIC_ITEM: &'static str = ItemKind::Metric.code();
+    /// Code of [`ItemKind::Crc`].
     pub const CRC: &'static str = ItemKind::Crc.code();
 }
 
@@ -186,11 +211,17 @@ impl ItemTypes {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
+/// A typed metric value.
 pub enum MetricValueType {
+    /// `i:<i64>`
     IntegerItemType(i64),
+    /// `b:0` / `b:1`
     BoolItemType(bool),
+    /// `d:<decimal>`
     DecimalItemType(Decimal),
+    /// `t:<text>` - any characters except `,`.
     TextItemType(String),
 }
 
@@ -308,7 +339,7 @@ impl From<&str> for MetricValueType {
 }
 
 impl fmt::Display for MetricValueType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let kind = self.kind();
         let sep = SPECIAL_CHAR_DATA_TYPES_AND_VALUES_SEP;
         match self {
@@ -321,13 +352,17 @@ impl fmt::Display for MetricValueType {
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// One `m|<name>=<type>:<value>` item.
 pub struct MetricDataItem {
+    /// Metric name (ASCII, no protocol separators).
     pub name: String,
+    /// Typed metric value.
     pub value: MetricValueType,
 }
 
 impl fmt::Display for MetricDataItem {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}{SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP}{}{SPECIAL_CHAR_SPLIT_DATA_ITEM_SEP}{}",
@@ -347,6 +382,7 @@ impl fmt::Display for MetricDataItem {
 /// Rows returned by [`str::parse`] and [`builder::IoTextBuilder::build`] are always valid.
 /// When constructing one by hand, use [`IoTextDataRow::validate`] before sending it.
 #[derive(Debug, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct IoTextDataRow {
     /// UNIX timestamp in milliseconds (`t|...`).
     pub timestamp: u64,
@@ -385,7 +421,7 @@ impl IoTextDataRow {
 
     /// The message without the CRC item - exactly the bytes the CRC is computed over.
     fn body_to_string(&self) -> String {
-        use std::fmt::Write;
+        use core::fmt::Write;
         let mut body = format!(
             "{}{SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP}{}{SPECIAL_CHAR_DATA_ITEMS_SEP}{}{SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP}{}",
             ItemKind::Timestamp,
@@ -423,7 +459,7 @@ impl IoTextDataRow {
 
 /// Serializes the row; a CRC item is appended (recomputed) when `crc16` is `Some`.
 impl fmt::Display for IoTextDataRow {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.to_iotext_string(self.crc16.is_some()))
     }
 }
@@ -529,6 +565,7 @@ pub trait IoTextData {
     /// See [`IoTextDataRow::from_str`].
     fn parse_iotext_str(&self, data_row: &str) -> Result<IoTextDataRow, IoTextError>;
 
+    /// See [`IoTextDataRow::to_iotext_string`].
     fn dump_iotext_to_str(&self, iotext_data_row: &IoTextDataRow, add_crc16: bool) -> String;
 }
 

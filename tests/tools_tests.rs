@@ -1,3 +1,5 @@
+//! CRC-16 tests.
+
 use iotext_rs::{crc16, crc16_to_hex};
 
 #[cfg(test)]

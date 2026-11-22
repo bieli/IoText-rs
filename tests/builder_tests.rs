@@ -1,11 +1,13 @@
+//! `IoTextBuilder` tests.
+
 use iotext_rs::builder::IoTextBuilder;
 
 #[cfg(test)]
 mod builder_tests {
     use super::*;
-    use iotext_rs::validators::{DeviceIdError, MetricDataTypeError, TextValueError};
     use iotext_rs::IoTextError;
     use iotext_rs::MetricValueType;
+    use iotext_rs::validators::{DeviceIdError, MetricDataTypeError, TextValueError};
     use iotext_rs::{MetricDataItem, MetricKind};
     use rust_decimal::Decimal;
 
@@ -31,6 +33,7 @@ mod builder_tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn test_valid_current_timestamp() {
         setup();
         let iotext_data_row = IoTextBuilder::new()
@@ -45,7 +48,7 @@ mod builder_tests {
     fn test_valid_device_id() {
         setup();
         let iotext_data_row = IoTextBuilder::new()
-            .current_timestamp()
+            .timestamp(1)
             .device_id("device123")
             .build(false)
             .unwrap();
@@ -56,7 +59,7 @@ mod builder_tests {
     fn test_valid_add_metric() {
         setup();
         let iotext_data_row = IoTextBuilder::new()
-            .current_timestamp()
+            .timestamp(1)
             .device_id("device123")
             .add_metric("temp1", MetricValueType::TextItemType("12".to_string()))
             .add_metric("temp2", MetricValueType::IntegerItemType(23))
@@ -84,7 +87,7 @@ mod builder_tests {
     fn test_valid_add_metric_as_str() {
         setup();
         let iotext_data_row = IoTextBuilder::new()
-            .current_timestamp()
+            .timestamp(1)
             .device_id("dev01")
             .add_metric_as_str("temp1", "112", "i")
             .build(false)
@@ -105,7 +108,7 @@ mod builder_tests {
         setup();
         // 0.5.x silently stored an empty TEXT value here.
         let result = IoTextBuilder::new()
-            .current_timestamp()
+            .timestamp(1)
             .device_id("dev02")
             .add_metric_as_str("temp1", "113", "unknown")
             .build(false);
