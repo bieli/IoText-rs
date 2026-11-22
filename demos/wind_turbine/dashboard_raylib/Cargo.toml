@@ -1,0 +1,15 @@
+[package]
+name = "wind_turbine_dashboard_raylib"
+version = "0.1.0"
+description = "Window that visualizes IoText wind turbine metrics received over TCP (raylib)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+raylib = "6.0"
+wind_turbine_common.workspace = true
+
+[lints]
+workspace = true

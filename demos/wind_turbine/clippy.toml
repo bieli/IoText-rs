@@ -1,0 +1,2 @@
+# "IoText" is the protocol name, not code.
+doc-valid-idents = ["IoText", ".."]

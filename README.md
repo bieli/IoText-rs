@@ -45,6 +45,19 @@ The build is verified for `thumbv6m-none-eabi` (Cortex-M0) and `x86_64-unknown-n
 
 The MSRV is **1.85** (edition 2024). Raising it is treated as a minor (not patch) release.
 
+## Demo: wind turbine dashboard
+
+[`demos/wind_turbine`](demos/wind_turbine) is an end-to-end example: a terminal "wind turbine"
+sends its metrics as IoText messages (with CRC) over TCP, and a dashboard window visualizes them
+and highlights rejected messages. There are two versions of the dashboard: macroquad (pure Rust)
+and raylib 6.
+
+```bash
+cd demos/wind_turbine
+cargo run --release -p wind_turbine_dashboard   # terminal 1
+cargo run --release -p wind_turbine_client      # terminal 2
+```
+
 ## Development details
 
 ```bash

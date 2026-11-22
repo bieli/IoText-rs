@@ -1,7 +1,7 @@
 version: 2
 updates:
   - package-ecosystem: cargo
-    directories: ["/", "/fuzz"]
+    directories: ["/", "/fuzz", "/demos/wind_turbine"]
     schedule:
       interval: weekly
     groups:
