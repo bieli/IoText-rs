@@ -1,0 +1,32 @@
+# Wind turbine demo for the IoText data protocol: a terminal client sends turbine
+# metrics as IoText messages over TCP, a dashboard window visualizes them.
+# Separate workspace (not published, not part of the iotext_rs package).
+[workspace]
+resolver = "3"
+members = ["common", "client", "dashboard", "dashboard_raylib"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.85"
+license = "Apache-2.0"
+publish = false
+
+[workspace.dependencies]
+iotext_rs = { path = "../.." }
+wind_turbine_common = { path = "common" }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+crossterm = "0.29"
+macroquad = { version = "0.4", default-features = false }
+rust_decimal = { version = "1.36", default-features = false, features = ["std"] }
+thiserror = "2"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# Drawing code converts between f32 screen coordinates and integer values on purpose.
+cast_precision_loss = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"

@@ -1,0 +1,16 @@
+[package]
+name = "wind_turbine_dashboard"
+version = "0.1.0"
+description = "Window that visualizes IoText wind turbine metrics received over TCP (macroquad)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+macroquad.workspace = true
+rust_decimal.workspace = true
+wind_turbine_common.workspace = true
+
+[lints]
+workspace = true
