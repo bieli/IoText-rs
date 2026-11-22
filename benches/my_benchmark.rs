@@ -1,110 +1,94 @@
-//! Parser throughput benchmarks for 10-200 metrics per message.
-#![allow(clippy::similar_names, clippy::missing_panics_doc, missing_docs)]
+//! Benchmarks: parse, serialize and build messages with 10-200 metrics, and CRC-16.
+//!
+//! Fixtures are generated with the builder (mixed i/b/d/t metrics, CRC included), so they
+//! are always valid messages and the parser is measured on its success path.
+#![allow(missing_docs, clippy::missing_panics_doc)]
 
-use criterion::{Criterion, criterion_group, criterion_main};
-use iotext_rs::IoTextDataRow;
 use std::hint::black_box;
-/*
-use rand::Rng;
 
-pub fn gen_rnd_str() -> String {
-  const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
-                          abcdefghijklmnopqrstuvwxyz\
-                          0123456789_";
-  const OUTPUT_LENGTH: usize = 30;
-  let mut rng = rand::thread_rng();
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use iotext_rs::builder::IoTextBuilder;
+use iotext_rs::{IoTextDataRow, crc16, crc16_with_poly};
+use rust_decimal::Decimal;
 
-  let gen_str: String = (0..OUTPUT_LENGTH)
-      .map(|_| {
-          let idx = rng.gen_range(0..CHARSET.len());
-          CHARSET[idx] as char
-      })
-      .collect();
+const METRIC_COUNTS: [usize; 5] = [10, 25, 50, 100, 200];
 
-  gen_str
-}
-
-pub fn gen_next_10_metrics() -> String {
-  format!("|{gen_rnd_str()}=i:12345678,m|{gen_rnd_str()}=i:15,m|bulb_state2=b:1,m|connector_state2=b:0,m|temp_02=d:341.14,m|temp_022=d:316.4,m|temp_032=d:20.4,m|pwr2=d:32.231,m|current2=d:4.429,m|current_battery2=d:1.548".to_owned())
-}
-*/
-
-pub fn criterion_benchmark(c: &mut Criterion) {
-    const MSG_EXAMPLE_10_METRICS_FIRST: &str = "t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|bulb_state=b:1,m|connector_state=b:0,m|temp_01=d:34.4,m|temp_02=d:36.4,m|temp_03=d:10.4,m|pwr=d:12.231,m|current=d:1.429,m|current_battery=d:1.548";
-
-    const MSG_EXAMPLE_10_METRICS_2: &str = ",m|val_water_002=i:12345678,m|val_water_0022=i:15,m|bulb_state2=b:1,m|connector_state2=b:0,m|temp_02=d:341.14,m|temp_022=d:316.4,m|temp_032=d:20.4,m|pwr2=d:32.231,m|current2=d:4.429,m|current_battery2=d:1.548";
-
-    const MSG_EXAMPLE_10_METRICS_3: &str = ",m|val_water_003=i:12345678,m|val_water_0023=i:15,m|bulb_state3=b:1,m|connector_state3=b:0,m|temp_03=d:341.14,m|temp_023=d:316.4,m|temp_033=d:20.4,m|pwr3=d:32.231,m|current3=d:4.429,m|current_battery3=d:1.548";
-
-    const MSG_EXAMPLE_10_METRICS_4: &str = ",m|val_water_004=i:12345678,m|val_water_0024=i:15,m|bulb_state4=b:1,m|connector_state4=b:0,m|temp_04=d:341.14,m|temp_024=d:316.4,m|temp_034=d:20.4,m|pwr4=d:32.231,m|current4=d:4.429,m|current_battery4=d:1.548";
-
-    let msg_example_20_metrics: String =
-        format!("{MSG_EXAMPLE_10_METRICS_FIRST}{MSG_EXAMPLE_10_METRICS_2}");
-
-    let msg_example_30_metrics: String = format!(
-        "{MSG_EXAMPLE_10_METRICS_FIRST}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}"
-    );
-
-    let msg_example_40_metrics: String = format!(
-        "{MSG_EXAMPLE_10_METRICS_FIRST}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}"
-    );
-
-    let msg_example_50_metrics: String = format!(
-        "{MSG_EXAMPLE_10_METRICS_FIRST}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}"
-    );
-
-    let msg_example_100_metrics: String = format!(
-        "{MSG_EXAMPLE_10_METRICS_FIRST}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}"
-    );
-
-    let msg_example_200_metrics: String = format!(
-        "{MSG_EXAMPLE_10_METRICS_FIRST}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}"
-    );
-
-    // Guard: every fixture must be a valid message, otherwise we benchmark the error path.
-    for (name, msg) in [
-        ("10", MSG_EXAMPLE_10_METRICS_FIRST),
-        ("20", msg_example_20_metrics.as_str()),
-        ("30", msg_example_30_metrics.as_str()),
-        ("40", msg_example_40_metrics.as_str()),
-        ("50", msg_example_50_metrics.as_str()),
-        ("100", msg_example_100_metrics.as_str()),
-        ("200", msg_example_200_metrics.as_str()),
-    ] {
-        let row = msg
-            .parse::<IoTextDataRow>()
-            .unwrap_or_else(|e| panic!("{name}-metrics fixture is invalid: {e}"));
-        assert_eq!(row.metrics.len(), name.parse::<usize>().unwrap());
+fn builder_with_metrics(n: usize) -> IoTextBuilder {
+    let mut builder = IoTextBuilder::new()
+        .timestamp(3900237526042)
+        .device_id("device_name_001");
+    for i in 0..n {
+        let name = format!("metric_{i:03}");
+        let i64_value = i64::try_from(i).unwrap();
+        builder = match i % 4 {
+            0 => builder.add_metric(&name, i64_value * 1_000),
+            1 => builder.add_metric(&name, i % 2 == 0),
+            2 => builder.add_metric(&name, Decimal::new(i64_value * 1_234, 3)),
+            _ => builder.add_metric(&name, "in_progress"),
+        };
     }
-
-    c.bench_function("parse_iotext_str - 10 metrics", |b| {
-        b.iter(|| black_box(MSG_EXAMPLE_10_METRICS_FIRST).parse::<IoTextDataRow>());
-    });
-
-    c.bench_function("parse_iotext_str - 20 metrics", |b| {
-        b.iter(|| black_box(msg_example_20_metrics.as_str()).parse::<IoTextDataRow>());
-    });
-
-    c.bench_function("parse_iotext_str - 30 metrics", |b| {
-        b.iter(|| black_box(msg_example_30_metrics.as_str()).parse::<IoTextDataRow>());
-    });
-
-    c.bench_function("parse_iotext_str - 40 metrics", |b| {
-        b.iter(|| black_box(msg_example_40_metrics.as_str()).parse::<IoTextDataRow>());
-    });
-
-    c.bench_function("parse_iotext_str - 50 metrics", |b| {
-        b.iter(|| black_box(msg_example_50_metrics.as_str()).parse::<IoTextDataRow>());
-    });
-
-    c.bench_function("parse_iotext_str - 100 metrics", |b| {
-        b.iter(|| black_box(msg_example_100_metrics.as_str()).parse::<IoTextDataRow>());
-    });
-
-    c.bench_function("parse_iotext_str - 200 metrics", |b| {
-        b.iter(|| black_box(msg_example_200_metrics.as_str()).parse::<IoTextDataRow>());
-    });
+    builder
 }
 
-criterion_group!(benches, criterion_benchmark);
+fn message(n: usize) -> String {
+    let msg = builder_with_metrics(n).build(true).unwrap().to_string();
+    // Guard: a fixture that does not parse would only benchmark the error path.
+    assert_eq!(msg.parse::<IoTextDataRow>().unwrap().metrics.len(), n);
+    msg
+}
+
+fn bench_parse(c: &mut Criterion) {
+    let mut group = c.benchmark_group("parse");
+    for n in METRIC_COUNTS {
+        let msg = message(n);
+        group.throughput(Throughput::Bytes(msg.len() as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(n), &msg, |b, msg| {
+            b.iter(|| black_box(msg.as_str()).parse::<IoTextDataRow>().unwrap());
+        });
+    }
+    group.finish();
+}
+
+fn bench_serialize(c: &mut Criterion) {
+    let mut group = c.benchmark_group("serialize");
+    for n in METRIC_COUNTS {
+        let msg = message(n);
+        let row: IoTextDataRow = msg.parse().unwrap();
+        group.throughput(Throughput::Bytes(msg.len() as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(n), &row, |b, row| {
+            b.iter(|| black_box(row).to_string());
+        });
+    }
+    group.finish();
+}
+
+fn bench_build(c: &mut Criterion) {
+    let mut group = c.benchmark_group("build");
+    for n in METRIC_COUNTS {
+        group.throughput(Throughput::Elements(n as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
+            b.iter(|| builder_with_metrics(black_box(n)).build(true).unwrap());
+        });
+    }
+    group.finish();
+}
+
+fn bench_crc16(c: &mut Criterion) {
+    let data = message(50).into_bytes();
+    let mut group = c.benchmark_group("crc16");
+    group.throughput(Throughput::Bytes(data.len() as u64));
+    group.bench_function("slice_by_8", |b| b.iter(|| crc16(black_box(&data))));
+    group.bench_function("bitwise", |b| {
+        b.iter(|| crc16_with_poly(black_box(&data), 0xA001));
+    });
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    bench_parse,
+    bench_serialize,
+    bench_build,
+    bench_crc16
+);
 criterion_main!(benches);

@@ -214,28 +214,48 @@ The old `IoTextData` trait, `Tools::crc16`, `MetricDataTypes` and `ItemTypes` ar
     );
 ```
 
-## Benchmark synthetics tests - guaranty of linear inc. parsing time depends IoText metrics count
+## Benchmarks
 
-Table with tests results:
+`cargo bench` measures parsing, serializing and building messages with 10-200 mixed
+(`i`/`b`/`d`/`t`) metrics plus a CRC, and the CRC-16 itself. Fixtures are generated with the
+builder and checked before measuring, so every benchmark runs the success path.
 
-| IoText message size (bytes) | IoText msg. metrics count  | avg. parsing time (µs) |
+| Benchmark | Mean time | Throughput |
 | --- | --- | --- |
-| 206 | 10 | 2.5 |
-| 432 | 20 | 4.5 |
-| 638 | 30 | 6.5 |
-| 844 | 40 | 8.5 |
-| 1050 | 50 | 10.5 |
-| 2080 | 100 | 20.5 |
-| 4160 | 200 | 41.5 |
+| `parse/10` | 1.7465 µs | 133.24 MiB/s |
+| `parse/25` | 4.8827 µs | 112.31 MiB/s |
+| `parse/50` | 9.4493 µs | 112.43 MiB/s |
+| `parse/100` | 17.437 µs | 120.98 MiB/s |
+| `parse/200` | 32.042 µs | 132.06 MiB/s |
+| `serialize/10` | 1.5457 µs | 150.55 MiB/s |
+| `serialize/25` | 3.4696 µs | 158.05 MiB/s |
+| `serialize/50` | 6.7160 µs | 158.19 MiB/s |
+| `serialize/100` | 14.327 µs | 147.24 MiB/s |
+| `serialize/200` | 25.759 µs | 164.27 MiB/s |
+| `build/10` | 3.3579 µs | 2.9781 Melem/s |
+| `build/25` | 12.758 µs | 1.9596 Melem/s |
+| `build/50` | 15.684 µs | 3.1880 Melem/s |
+| `build/100` | 35.762 µs | 2.7963 Melem/s |
+| `build/200` | 61.551 µs | 3.2494 Melem/s |
+| `crc16/slice_by_8` | 533.95 ns | 1.9430 GiB/s |
+| `crc16/bitwise` | 2.4678 µs | 430.49 MiB/s |
 
-**Based on the below data in avg. 1 second time, we can parse avg. 24000 IoText data messages (with 200 metrics per msg.) with this RUST implementation.**
-**It is quite an impressive result and of course, expected !!!**
+Parsing scales linearly with the number of metrics (about 0.17 µs per metric, ~30 000
+messages/s with 200 metrics each on one core). The slice-by-8 CRC is ~4.6x faster than the
+bitwise reference; it made parsing ~15% faster than the previous lookup-table version.
+
+Measured with criterion 0.8 on an Intel Core i7-8850H @ 2.60GHz (Linux 5.15, Rust 1.100,
+load average ~4.5, so treat the numbers as indicative).
+
+### Historical results (0.5.x)
+
+Parsing time of the 0.5.x parser ([`assets/benches.csv`](assets/benches.csv)):
 
 ![Benches](assets/bieli__IoText-rs-__IoT_data-protocol-benchmark_01.png?raw=true "Benches")
 
-Tests were prepared on a machine with Intel(R) Core(TM) i7-8850H CPU @ 2.60GHz 6-cores processor and 32GB RAM. With `load average: 1,44, 2,49, 3,51` (info from `upime` cmd) and approx. 80% RAM used. Linux kernel 5.15 and distribution Linux Ubuntu 20.04.6 LTS.
-
-More detailed statistics from `cargo bench` running you can see in bottom section `Example cargo bench outputs`.
+> In those fixtures one metric per 10 was malformed (`...=d:1.548|val_water_002=...` instead of
+> `...=d:1.548,m|val_water_002=...`); the 0.5.x parser silently merged it, the current parser
+> rejects it. The current benchmarks use builder-generated, validated messages with a CRC.
 
 ### Input example IoText data row
 ```bash
@@ -325,82 +345,26 @@ iotext_data_row: IoTextDataRow {
 str_from_iotext_data: t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|bulb_state=b:1,m|connector_state=b:0,m|temp_01=d:34.4,m|temp_02=d:36.4,m|temp_03=d:10.4,m|pwr=d:12.231,m|current=d:1.429,m|current_battery=d:1.548,m|status_txt=t:in_progress,c|ECF6
 ```
 
-### Example cargo bench outputs
-```bash
-
-$ cargo bench
-
-parse_iotext_str - 10 metrics                                                                             
-                        time:   [1.9704 µs 1.9910 µs 2.0142 µs]
-                        change: [-1.0093% +2.9404% +7.3783%] (p = 0.19 > 0.05)
-                        No change in performance detected.
-Found 13 outliers among 100 measurements (13.00%)
-  9 (9.00%) high mild
-  4 (4.00%) high severe
-
-parse_iotext_str - 20 metrics                                                                             
-                        time:   [3.8728 µs 3.9334 µs 4.0187 µs]
-                        change: [-1.9420% +0.3434% +2.5942%] (p = 0.78 > 0.05)
-                        No change in performance detected.
-Found 11 outliers among 100 measurements (11.00%)
-  4 (4.00%) high mild
-  7 (7.00%) high severe
-
-parse_iotext_str - 30 metrics                                                                             
-                        time:   [5.9316 µs 6.0091 µs 6.0924 µs]
-                        change: [+2.2407% +3.9826% +5.6299%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 7 outliers among 100 measurements (7.00%)
-  6 (6.00%) high mild
-  1 (1.00%) high severe
-
-parse_iotext_str - 40 metrics                                                                             
-                        time:   [8.4750 µs 8.6151 µs 8.7691 µs]
-                        change: [-2.1735% -0.1968% +1.6887%] (p = 0.85 > 0.05)
-                        No change in performance detected.
-Found 2 outliers among 100 measurements (2.00%)
-  2 (2.00%) high mild
-
-parse_iotext_str - 50 metrics                                                                             
-                        time:   [10.914 µs 11.076 µs 11.264 µs]
-                        change: [+3.2785% +5.5452% +7.6130%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 3 outliers among 100 measurements (3.00%)
-  2 (2.00%) high mild
-  1 (1.00%) high severe
-
-parse_iotext_str - 100 metrics                                                                             
-                        time:   [20.456 µs 20.593 µs 20.764 µs]
-                        change: [-1.5163% +0.1975% +1.7861%] (p = 0.82 > 0.05)
-                        No change in performance detected.
-Found 8 outliers among 100 measurements (8.00%)
-  2 (2.00%) high mild
-  6 (6.00%) high severe
-
-parse_iotext_str - 200 metrics                                                                             
-                        time:   [40.849 µs 41.396 µs 42.023 µs]
-Found 6 outliers among 100 measurements (6.00%)
-  4 (4.00%) high mild
-  2 (2.00%) high severe
-```
-
-
-## Run unit tests
+## Testing
 
 ```bash
-
-$ make test
-
-    Finished test [unoptimized + debuginfo] target(s) in 0.42s
-     Running unittests src/main.rs (target/debug/deps/iotext_rs-a68ae8edfd0a7e63)
-
-running 5 tests
-test tests::test_extract_metric_value_type_bool_false ... ok
-test tests::test_extract_metric_value_type_bool_true ... ok
-test tests::test_extract_metric_value_type_integer ... ok
-test tests::test_extract_metric_value_type_decimal ... ok
-test tests::test_extract_metric_value_type_text ... ok
-
-test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+make test                     # unit, property (proptest), serde and doc tests, all features
+PROPTEST_CASES=50000 cargo test --release --test lib_proptest   # longer property-test run
 ```
+
+### Fuzzing
+
+Two [`cargo fuzz`](https://github.com/rust-fuzz/cargo-fuzz) targets live in `fuzz/` (nightly toolchain):
+
+* `parse` - arbitrary bytes into the parser; every accepted message must re-serialize to a canonical
+  message that parses back to the same row.
+* `builder` - structured random input into `IoTextBuilder`; everything the builder accepts must be
+  accepted by the parser as an identical row.
+
+```bash
+cargo install cargo-fuzz
+make fuzz                     # 60 s per target, with the protocol dictionary
+make fuzz-regressions         # replay inputs that crashed before (fuzz/regressions/)
+```
+
 

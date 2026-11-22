@@ -3,6 +3,18 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+- A decimal negative zero (e.g. `d:-1E-40`) serialized as `-0.000...` but parsed back as
+  positive zero, so the message text changed on a parse/serialize round-trip. Found by `cargo fuzz`.
+
+### Changed
+- CRC-16 uses slice-by-8 tables (built at compile time): ~4.6x faster, parsing ~15% faster.
+
+### Added
+- `cargo fuzz` targets (`fuzz/`), rewritten benchmarks, more doctests.
+
 ## [1.3.0] - 2026-11-22
 
 > Contains source-breaking changes to the data model compared with 1.0.0;
@@ -54,5 +66,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Deprecated
 - `IoTextData` trait, `IoTextBuilderError`.
 
+[Unreleased]: https://github.com/bieli/IoText-rs/compare/1.3.0...HEAD
 [1.3.0]: https://github.com/bieli/IoText-rs/compare/1.0.0...1.3.0
 [1.0.0]: https://github.com/bieli/IoText-rs/compare/0.5.0...1.0.0
