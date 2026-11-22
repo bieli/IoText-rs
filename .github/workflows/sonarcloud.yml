@@ -54,7 +54,9 @@ jobs:
       - name: Clippy report (JSON)
         if: steps.token.outputs.present == 'true'
         # Findings are imported into SonarQube Cloud; failing on them is the CI workflow's job.
-        run: cargo clippy --all-targets --all-features --message-format=json > target/clippy-report.json
+        run: |
+          mkdir -p target
+          cargo clippy --all-targets --all-features --message-format=json > target/clippy-report.json
 
       - name: Coverage report (LCOV)
         if: steps.token.outputs.present == 'true'
