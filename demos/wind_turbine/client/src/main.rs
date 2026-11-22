@@ -111,6 +111,85 @@ fn print_help(addr: &str) {
     println!();
 }
 
+/// Connection to the dashboard and what was sent last.
+struct Client {
+    addr: String,
+    state: State,
+    stream: Option<TcpStream>,
+    last_connect_try: Option<Instant>,
+    /// `None` means "send now" (state changed or just connected).
+    last_sent: Option<Instant>,
+    last_message: String,
+}
+
+impl Client {
+    fn new(addr: String) -> Self {
+        Client {
+            addr,
+            state: State::default(),
+            stream: None,
+            last_connect_try: None,
+            last_sent: None,
+            last_message: String::from("-"),
+        }
+    }
+
+    /// (Re)connects at most once per [`RECONNECT`].
+    fn ensure_connected(&mut self) {
+        if self.stream.is_some()
+            || self
+                .last_connect_try
+                .is_some_and(|t| t.elapsed() < RECONNECT)
+        {
+            return;
+        }
+        self.last_connect_try = Some(Instant::now());
+        if let Ok(stream) = TcpStream::connect(&self.addr) {
+            self.stream = Some(stream);
+            self.last_sent = None; // send the current state right away
+        }
+    }
+
+    /// Waits up to [`KEY_POLL`] for a key press and applies it.
+    fn poll_key(&mut self) -> io::Result<Action> {
+        if !event::poll(KEY_POLL)? {
+            return Ok(Action::None);
+        }
+        let action = match event::read()? {
+            Event::Key(key) if key.kind == KeyEventKind::Press => {
+                handle_key(&mut self.state, key.code)
+            }
+            _ => Action::None,
+        };
+        if matches!(action, Action::Changed) {
+            self.last_sent = None;
+        }
+        Ok(action)
+    }
+
+    /// Sends the state if it changed, the heartbeat is due, or a corrupted message was requested.
+    fn send_if_due(&mut self, corrupted: bool) -> io::Result<()> {
+        let due = corrupted || self.last_sent.is_none_or(|t| t.elapsed() >= HEARTBEAT);
+        let Some(stream) = self.stream.as_mut().filter(|_| due) else {
+            return Ok(());
+        };
+        let msg = self
+            .state
+            .metrics()
+            .to_message()
+            .map_err(io::Error::other)?;
+        let msg = if corrupted { corrupt(&msg) } else { msg };
+        if stream.write_all(msg.as_bytes()).is_err() {
+            self.stream = None; // dashboard went away: reconnect
+            return Ok(());
+        }
+        self.last_sent = Some(Instant::now());
+        let note = if corrupted { " (broken CRC)" } else { "" };
+        self.last_message = format!("sent{note} {}", msg.trim_end());
+        Ok(())
+    }
+}
+
 fn main() -> io::Result<()> {
     let addr = std::env::args()
         .nth(1)
@@ -118,53 +197,20 @@ fn main() -> io::Result<()> {
     print_help(&addr);
     let _raw = RawModeGuard::enable()?;
 
-    let mut state = State::default();
-    let mut stream: Option<TcpStream> = None;
-    let mut last_connect_try: Option<Instant> = None;
-    let mut last_sent: Option<Instant> = None;
-    let mut last = String::from("-");
-
+    let mut client = Client::new(addr);
     loop {
-        if stream.is_none() && last_connect_try.is_none_or(|t| t.elapsed() >= RECONNECT) {
-            last_connect_try = Some(Instant::now());
-            if let Ok(s) = TcpStream::connect(&addr) {
-                stream = Some(s);
-                last_sent = None; // send the current state right away
-            }
+        client.ensure_connected();
+        let action = client.poll_key()?;
+        if matches!(action, Action::Quit) {
+            break;
         }
-
-        let mut send_corrupted = false;
-        if event::poll(KEY_POLL)? {
-            if let Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press {
-                    match handle_key(&mut state, key.code) {
-                        Action::Quit => break,
-                        Action::Changed => last_sent = None,
-                        Action::SendCorrupted => send_corrupted = true,
-                        Action::None => {}
-                    }
-                }
-            }
-        }
-
-        if let Some(s) = stream.as_mut() {
-            if send_corrupted || last_sent.is_none_or(|t| t.elapsed() >= HEARTBEAT) {
-                let msg = state.metrics().to_message().map_err(io::Error::other)?;
-                let msg = if send_corrupted { corrupt(&msg) } else { msg };
-                if s.write_all(msg.as_bytes()).is_ok() {
-                    last_sent = Some(Instant::now());
-                    last = format!(
-                        "sent{} {}",
-                        if send_corrupted { " (broken CRC)" } else { "" },
-                        msg.trim_end()
-                    );
-                } else {
-                    stream = None; // dashboard went away: reconnect
-                }
-            }
-        }
-
-        status_line(&state, stream.is_some(), &addr, &last)?;
+        client.send_if_due(matches!(action, Action::SendCorrupted))?;
+        status_line(
+            &client.state,
+            client.stream.is_some(),
+            &client.addr,
+            &client.last_message,
+        )?;
     }
     Ok(())
 }
