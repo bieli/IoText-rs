@@ -1,0 +1,105 @@
+name: Release
+
+# Push a tag equal to the version in Cargo.toml (e.g. `1.3.1`) to publish it to crates.io
+# and create the matching GitHub release with notes taken from CHANGELOG.md.
+on:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to release (must equal the Cargo.toml version at that tag)
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  verify:
+    name: Verify tag and package
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Tag must match Cargo.toml version
+        id: version
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="iotext_rs") | .version')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ "$TAG" != "$version" ] && [ "$TAG" != "v$version" ]; then
+            echo "::error::Tag '$TAG' does not match Cargo.toml version '$version'. Bump the version first."
+            exit 1
+          fi
+
+      - name: Version must not be on crates.io yet
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          status=$(curl -s -o /dev/null -w '%{http_code}' -H "User-Agent: iotext_rs-release (github.com/${{ github.repository }})" \
+            "https://crates.io/api/v1/crates/iotext_rs/$VERSION")
+          if [ "$status" = "200" ]; then
+            echo "::error::iotext_rs $VERSION is already published on crates.io."
+            exit 1
+          fi
+
+      - name: CHANGELOG must have an entry
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: grep -q "^## \[$VERSION\]" CHANGELOG.md || { echo "::error::CHANGELOG.md has no '## [$VERSION]' section."; exit 1; }
+
+      - run: cargo test --all-features --locked
+      - run: cargo test --no-default-features --locked
+      - run: cargo publish --dry-run --locked
+
+  publish:
+    name: Publish to crates.io
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: crates-io
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo publish --locked
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_TOKEN }}
+
+  github-release:
+    name: GitHub release
+    needs: [verify, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - name: Extract release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > release-notes.md
+          echo "" >> release-notes.md
+          echo "crates.io: https://crates.io/crates/iotext_rs/$VERSION" >> release-notes.md
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: gh release create "$TAG" --title "$TAG" --notes-file release-notes.md --verify-tag
