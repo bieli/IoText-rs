@@ -3,10 +3,12 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.2.0] - 2026-11-22
+## [1.3.0] - 2026-11-22
 
 > Contains source-breaking changes to the data model compared with 1.0.0;
-> see "Migrating from 1.0.0 to 1.2.0" in the README.
+> see "Migrating from 1.0.0 to 1.3.0" in the README.
+>
+> Tags `1.1.0` and `1.2.0` point at the 1.0.0 code and were never published to crates.io.
 
 ### Changed
 - `IoTextDataRow` is a flat struct: `timestamp: u64`, `device_id: String`,
@@ -52,5 +54,5 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Deprecated
 - `IoTextData` trait, `IoTextBuilderError`.
 
-[1.2.0]: https://github.com/bieli/IoText-rs/compare/1.0.0...1.2.0
+[1.3.0]: https://github.com/bieli/IoText-rs/compare/1.0.0...1.3.0
 [1.0.0]: https://github.com/bieli/IoText-rs/compare/0.5.0...1.0.0

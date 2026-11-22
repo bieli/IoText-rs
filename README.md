@@ -105,12 +105,12 @@ match "t|1,d|dev,c|0000".parse::<IoTextDataRow>() {
 | CRC of message without metrics covered a trailing `,` | CRC covers exactly the bytes before `,c\|` |
 | separators allowed in device id / metric name | `, : \| =` rejected; `,` rejected in TEXT values |
 
-### Migrating from 1.0.0 to 1.2.0
+### Migrating from 1.0.0 to 1.3.0
 
-> **Note:** 1.2.0 changes the public data model, so code written against 1.0.0 needs the
+> **Note:** 1.3.0 changes the public data model, so code written against 1.0.0 needs the
 > updates below (the compiler points at every place). See [CHANGELOG.md](CHANGELOG.md).
 
-| 1.0.0 | 1.2.0 |
+| 1.0.0 | 1.3.0 |
 |---|---|
 | `row.timestamp.value == ItemTypeEnum::TimeUnixMilis(ts)` | `row.timestamp == ts` (`u64`) |
 | `row.device_id.value == ItemTypeEnum::DeviceId(id)` | `row.device_id == id` (`String`) |
