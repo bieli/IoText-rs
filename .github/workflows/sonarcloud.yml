@@ -1,0 +1,73 @@
+name: SonarQube Cloud
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read # PR decoration
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  sonarcloud:
+    name: SonarQube Cloud
+    runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history for blame and new-code detection
+
+      # Fork and Dependabot PRs get no Actions secrets: skip instead of failing.
+      - name: Check for SONAR_TOKEN
+        id: token
+        run: |
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo "::notice::SONAR_TOKEN is not available for this run (fork or Dependabot PR); skipping the scan."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.token.outputs.present == 'true'
+        with:
+          components: clippy, llvm-tools-preview
+      - uses: taiki-e/install-action@v2
+        if: steps.token.outputs.present == 'true'
+        with:
+          tool: cargo-llvm-cov
+      - uses: Swatinem/rust-cache@v2
+        if: steps.token.outputs.present == 'true'
+
+      - name: Clippy report (JSON)
+        if: steps.token.outputs.present == 'true'
+        # Findings are imported into SonarQube Cloud; failing on them is the CI workflow's job.
+        run: cargo clippy --all-targets --all-features --message-format=json > target/clippy-report.json
+
+      - name: Coverage report (LCOV)
+        if: steps.token.outputs.present == 'true'
+        run: cargo llvm-cov --all-features --lcov --output-path target/lcov.info
+
+      - name: Project version
+        if: steps.token.outputs.present == 'true'
+        id: version
+        run: echo "version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="iotext_rs") | .version')" >> "$GITHUB_OUTPUT"
+
+      - name: SonarQube Cloud scan
+        if: steps.token.outputs.present == 'true'
+        uses: SonarSource/sonarqube-scan-action@v8
+        with:
+          args: >
+            -Dsonar.projectVersion=${{ steps.version.outputs.version }}
