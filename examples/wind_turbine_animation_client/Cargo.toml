@@ -1,0 +1,13 @@
+[package]
+name = "wind_turbine_animation_client"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = "0.4"
+iotext_rs = "0.5.0"
+rust_decimal = "1.36"
+rust_decimal_macros = "1.36.0"
+tokio = { version = "1.0", features = ["full"] }
+crossterm = "0.21"
+
