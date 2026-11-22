@@ -177,13 +177,13 @@ pub struct MetricDataTypes {}
 #[allow(deprecated)]
 impl MetricDataTypes {
     /// Code of [`MetricKind::Integer`].
-    pub const INTEGER: &'static str = MetricKind::Integer.code();
+    pub const INTEGER: &str = MetricKind::Integer.code();
     /// Code of [`MetricKind::Bool`].
-    pub const BOOL: &'static str = MetricKind::Bool.code();
+    pub const BOOL: &str = MetricKind::Bool.code();
     /// Code of [`MetricKind::Decimal`].
-    pub const DECIMAL: &'static str = MetricKind::Decimal.code();
+    pub const DECIMAL: &str = MetricKind::Decimal.code();
     /// Code of [`MetricKind::Text`].
-    pub const TEXT: &'static str = MetricKind::Text.code();
+    pub const TEXT: &str = MetricKind::Text.code();
 }
 
 /// Pre-1.0 item type codes.
@@ -197,13 +197,13 @@ pub struct ItemTypes {}
 #[allow(deprecated)]
 impl ItemTypes {
     /// Code of [`ItemKind::Timestamp`].
-    pub const TIMESTAMP_MILIS: &'static str = ItemKind::Timestamp.code();
+    pub const TIMESTAMP_MILIS: &str = ItemKind::Timestamp.code();
     /// Code of [`ItemKind::DeviceId`].
-    pub const DEVICE_ID: &'static str = ItemKind::DeviceId.code();
+    pub const DEVICE_ID: &str = ItemKind::DeviceId.code();
     /// Code of [`ItemKind::Metric`].
-    pub const METRIC_ITEM: &'static str = ItemKind::Metric.code();
+    pub const METRIC_ITEM: &str = ItemKind::Metric.code();
     /// Code of [`ItemKind::Crc`].
-    pub const CRC: &'static str = ItemKind::Crc.code();
+    pub const CRC: &str = ItemKind::Crc.code();
 }
 
 // ---------------------------------------------------------------------------
