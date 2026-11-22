@@ -3,7 +3,7 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [1.3.1] - 2026-11-22
 
 ### Fixed
 - A decimal negative zero (e.g. `d:-1E-40`) serialized as `-0.000...` but parsed back as
@@ -66,6 +66,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Deprecated
 - `IoTextData` trait, `IoTextBuilderError`.
 
-[Unreleased]: https://github.com/bieli/IoText-rs/compare/1.3.0...HEAD
+[1.3.1]: https://github.com/bieli/IoText-rs/compare/1.3.0...1.3.1
 [1.3.0]: https://github.com/bieli/IoText-rs/compare/1.0.0...1.3.0
 [1.0.0]: https://github.com/bieli/IoText-rs/compare/0.5.0...1.0.0
