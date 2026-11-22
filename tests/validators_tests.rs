@@ -1,14 +1,16 @@
+//! Field validator tests.
+
 #[cfg(test)]
 mod validators_tests {
     // #[cfg(test)]
     // use pretty_assertions::assert_eq;
 
+    use iotext_rs::MetricKind;
     use iotext_rs::validators::Validators;
     use iotext_rs::validators::{
-        CrcError, MetricDataTypeError, MetricNameError, METRIC_NAME_MAX_LEN,
+        CrcError, METRIC_NAME_MAX_LEN, MetricDataTypeError, MetricNameError,
     };
-    use iotext_rs::validators::{DeviceIdError, TimestampError, DEVICE_ID_MAX_LEN};
-    use iotext_rs::MetricKind;
+    use iotext_rs::validators::{DEVICE_ID_MAX_LEN, DeviceIdError, TimestampError};
 
     #[test]
     fn test_valid_timestamp() {
@@ -74,7 +76,7 @@ mod validators_tests {
         assert!(result.is_err());
         match result.err().unwrap() {
             DeviceIdError::DeviceIdExpectedOnlyAsciiCharacters(s) => {
-                assert_eq!(s, device_id.to_string())
+                assert_eq!(s, device_id.to_string());
             }
             _ => panic!("Unexpected error type"),
         }
@@ -191,7 +193,7 @@ mod validators_tests {
         assert!(result.is_err());
         match result.err().unwrap() {
             MetricNameError::MetricNameExpectedOnlyAsciiCharacters(s) => {
-                assert_eq!(s, metric_name.to_string())
+                assert_eq!(s, metric_name.to_string());
             }
             _ => panic!("Unexpected error type"),
         }
@@ -246,7 +248,7 @@ mod validators_tests {
         assert!(result.is_err());
         match result.err().unwrap() {
             MetricDataTypeError::MetricDataTypeIsEmpty(s) => {
-                assert_eq!(s, metric_data_type.to_string())
+                assert_eq!(s, metric_data_type.to_string());
             }
             _ => panic!("Unexpected error type"),
         }

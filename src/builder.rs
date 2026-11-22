@@ -1,7 +1,8 @@
 use crate::validators::Validators;
 use crate::{IoTextDataRow, IoTextError, MetricDataItem, MetricKind, MetricValueType};
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use log::trace;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Kept for source compatibility; the builder now reports [`IoTextError`].
 #[deprecated(since = "1.0.0", note = "use `iotext_rs::IoTextError`")]
@@ -40,6 +41,7 @@ pub struct IoTextBuilder {
 
 impl IoTextBuilder {
     #[must_use]
+    /// Creates an empty builder; `timestamp` and `device_id` must be set before [`build`](Self::build).
     pub fn new() -> Self {
         Self::default()
     }
@@ -68,14 +70,18 @@ impl IoTextBuilder {
     }
 
     #[must_use]
+    /// Sets the UNIX timestamp in milliseconds.
     pub fn timestamp(mut self, timestamp: u64) -> Self {
         trace!("IoTextBuilder::timestamp() - timestamp: {timestamp}");
         self.timestamp = Some(timestamp);
         self
     }
 
+    /// Sets the timestamp to the current system time (requires the `std` feature).
+    #[cfg(feature = "std")]
     #[must_use]
     pub fn current_timestamp(mut self) -> Self {
+        use std::time::{SystemTime, UNIX_EPOCH};
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .ok()
@@ -89,6 +95,7 @@ impl IoTextBuilder {
     }
 
     #[must_use]
+    /// Sets the device id; an invalid id is reported by [`build`](Self::build).
     pub fn device_id(mut self, device_id: &str) -> Self {
         trace!("IoTextBuilder::device_id() - device_id: {device_id}");
         match Validators::validate_device_id_str(device_id) {

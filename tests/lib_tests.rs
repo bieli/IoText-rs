@@ -1,7 +1,9 @@
+//! Parser / serializer tests.
+
 use rust_decimal::prelude::*;
 
 use iotext_rs::validators::{DeviceIdError, MetricDataTypeError, MetricNameError};
-use iotext_rs::{crc16, IoTextDataRow, IoTextError, ItemKind, MetricKind, MetricValueType};
+use iotext_rs::{IoTextDataRow, IoTextError, ItemKind, MetricKind, MetricValueType, crc16};
 
 #[cfg(test)]
 mod lib_tests {
@@ -127,7 +129,7 @@ mod lib_tests {
     fn test_parse_iotext_str_for_device_id_without_measurements() {
         let result: IoTextDataRow = "t|3900237526045,d|device_name_005".parse().unwrap();
         assert_eq!(result.device_id, "device_name_005");
-        assert!(result.metrics.is_empty());
+        assert_eq!(result.metrics, [] as [iotext_rs::MetricDataItem; 0]);
     }
 
     #[test]
@@ -138,9 +140,11 @@ mod lib_tests {
 
     #[test]
     fn test_parse_accepts_lowercase_crc() {
-        assert!("t|3900237526045,d|device_name_005,c|6f89"
-            .parse::<IoTextDataRow>()
-            .is_ok());
+        assert!(
+            "t|3900237526045,d|device_name_005,c|6f89"
+                .parse::<IoTextDataRow>()
+                .is_ok()
+        );
     }
 
     #[test]
@@ -202,7 +206,10 @@ mod lib_tests {
     #[test]
     fn test_parse_error_structure() {
         assert_eq!(parse_err(""), IoTextError::EmptyMessage);
-        assert_eq!(parse_err("t|1,d|x,"), IoTextError::MalformedItem("".into()));
+        assert_eq!(
+            parse_err("t|1,d|x,"),
+            IoTextError::MalformedItem(String::new())
+        );
         assert_eq!(
             parse_err("garbage"),
             IoTextError::MalformedItem("garbage".into())
