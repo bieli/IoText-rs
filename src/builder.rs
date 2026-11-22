@@ -4,7 +4,7 @@ use log::trace;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Kept for source compatibility; the builder now reports [`IoTextError`].
-#[deprecated(since = "0.6.0", note = "use `iotext_rs::IoTextError`")]
+#[deprecated(since = "1.0.0", note = "use `iotext_rs::IoTextError`")]
 pub type IoTextBuilderError = IoTextError;
 
 /// Builds an [`IoTextDataRow`]. Setter methods never panic: the first validation

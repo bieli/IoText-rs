@@ -51,9 +51,9 @@ match "t|1,d|dev,c|0000".parse::<IoTextDataRow>() {
 }
 ```
 
-### Migrating from 0.5.x to 0.6.0
+### Migrating from 0.5.x to 1.0.0
 
-| 0.5.x | 0.6.0 |
+| 0.5.x | 1.0.0 |
 |---|---|
 | `IoTextDataRow::default().parse_iotext_str(s)` (panics) | `s.parse::<IoTextDataRow>()?` |
 | `data_obj.dump_iotext_to_str(&row, add_crc)` | `row.to_iotext_string(add_crc)` or `row.to_string()` |

@@ -385,9 +385,9 @@ impl FromStr for IoTextDataRow {
     }
 }
 
-/// Pre-0.6 API kept for easier migration; methods now return `Result` instead of panicking.
+/// Pre-1.0 API kept for easier migration; methods now return `Result` instead of panicking.
 #[deprecated(
-    since = "0.6.0",
+    since = "1.0.0",
     note = "use `str::parse::<IoTextDataRow>()`, `IoTextDataRow::to_iotext_string()` and `MetricValueType::from_type_and_value()`"
 )]
 pub trait IoTextData {
