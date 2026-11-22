@@ -1,6 +1,6 @@
 # IoText-rs
 
-![CI status](https://github.com/bieli/IoText-rs/actions/workflows/test.yaml/badge.svg)
+![CI status](https://github.com/bieli/IoText-rs/actions/workflows/ci.yml/badge.svg)
 ![github_tag](https://img.shields.io/github/v/tag/bieli/IoText-rs)
 [![Crates.io](https://img.shields.io/crates/v/iotext_rs.svg)](https://crates.io/crates/iotext_rs)
 [![docs.rs](https://img.shields.io/docsrs/iotext_rs)](https://docs.rs/iotext_rs)

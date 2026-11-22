@@ -1,0 +1,26 @@
+# cargo-deny configuration: https://embarkstudios.github.io/cargo-deny/
+[graph]
+all-features = true
+
+[advisories]
+# RustSec advisories: vulnerabilities and unsound crates fail; unmaintained only for direct deps.
+unmaintained = "workspace"
+yanked = "deny"
+
+[licenses]
+confidence-threshold = 0.9
+# Only licenses actually present in the dependency tree; extend when a new dep needs one.
+allow = [
+    "Apache-2.0",
+    "MIT",
+    "Unicode-3.0",
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
