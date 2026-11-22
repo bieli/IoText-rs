@@ -45,7 +45,7 @@ fn main() -> Result<(), IoTextError> {
 use iotext_rs::{IoTextDataRow, IoTextError};
 
 match "t|1,d|dev,c|0000".parse::<IoTextDataRow>() {
-    Err(IoTextError::CrcMismatch { received, computed }) => eprintln!("bad CRC {received} != {computed}"),
+    Err(IoTextError::CrcMismatch { received, computed }) => eprintln!("bad CRC {received:04X} != {computed:04X}"),
     Err(other) => eprintln!("invalid message: {other}"),
     Ok(row) => println!("{row}"),
 }
@@ -64,8 +64,20 @@ match "t|1,d|dev,c|0000".parse::<IoTextDataRow>() {
 | CRC item parsed but not verified | CRC verified; must be the last item |
 | CRC of message without metrics covered a trailing `,` | CRC covers exactly the bytes before `,c\|` |
 | separators allowed in device id / metric name | `, : \| =` rejected; `,` rejected in TEXT values |
+| `row.timestamp.value == ItemTypeEnum::TimeUnixMilis(ts)` | `row.timestamp == ts` (`u64`) |
+| `row.device_id.value == ItemTypeEnum::DeviceId(id)` | `row.device_id == id` (`String`) |
+| `row.metrics: Option<Vec<MetricDataItem>>` | `row.metrics: Vec<MetricDataItem>` (empty = no metrics) |
+| `row.crc16: Option<Item>` (`Crc(String)`) | `row.crc16: Option<u16>` |
+| `get_timestamp()` / `timestamp_mut()` / ... getters | public fields; `row.metric("name")` lookup |
+| `Item`, `ItemTypeEnum` | removed |
+| `MetricDataTypes::INTEGER`, `ItemTypes::CRC` | `MetricKind::Integer`, `ItemKind::Crc` (`.code()` gives `"i"`, `"c"`) |
+| `Tools::crc16(s, CRC16_POLY_DEFAULT)` → `String` | `crc16(s.as_bytes())` → `u16` (`const fn`, table-driven); `crc16_to_hex()` |
+| `.add_metric("t", MetricValueType::DecimalItemType(d))` | `.add_metric("t", d)` - accepts `i64`, `i32`, `u32`, `bool`, `Decimal`, `&str`, `String` |
+| `.add_metric_as_str("t", "1.5", "d")` | still works; also `.add_metric_of_kind("t", MetricKind::Decimal, "1.5")` |
+| `IoTextError::CrcMismatch { received: String, .. }` | `received` / `computed` are `u16` |
 
-The old `IoTextData` trait is still available (deprecated) and now returns `Result`.
+The old `IoTextData` trait, `Tools::crc16`, `MetricDataTypes` and `ItemTypes` are still available (deprecated).
+`MetricValueType`, `MetricKind`, `ItemKind` and all error enums are `#[non_exhaustive]`, so new protocol types can be added in minor releases.
 
 ### Example library code usage without CRC (BUILDER pattern usage with IoTextBuilder)
 
@@ -82,31 +94,25 @@ The old `IoTextData` trait is still available (deprecated) and now returns `Resu
         .add_metric_as_str("val_water_001", "1234", "i")
         .add_metric_as_str("val_water_002", "15", "i")
         .add_metric_as_str("bulb_state", "1", "b")
-        .add_metric("connector_state", MetricValueType::BoolItemType(false))
+        .add_metric("connector_state", false)
         .add_metric(
             "temp_01",
-            MetricValueType::DecimalItemType(
-                Decimal::from_f64(34.4).expect("Could not convert value to decimal!"),
-            ),
+            Decimal::new(344, 1),
         )
         .add_metric(
             "temp_02",
-            MetricValueType::DecimalItemType(
-                Decimal::from_f64(36.4).expect("Could not convert value to decimal!"),
-            ),
+            Decimal::new(364, 1),
         )
         .add_metric_as_str("temp_03", "10.4", "d")
         .add_metric_as_str("pwr", "12.231", "d")
         .add_metric_as_str("current", "1.429", "d")
         .add_metric(
             "current_battery",
-            MetricValueType::DecimalItemType(
-                Decimal::from_f64(1.548).expect("Could not convert value to decimal!"),
-            ),
+            Decimal::new(1548, 3),
         )
         .add_metric(
             "status_txt",
-            MetricValueType::TextItemType("in_progress".to_string()),
+            "in_progress",
         )
         .build(false)?;
 
@@ -129,31 +135,25 @@ The old `IoTextData` trait is still available (deprecated) and now returns `Resu
         .add_metric_as_str("val_water_001", "1234", "i")
         .add_metric_as_str("val_water_002", "15", "i")
         .add_metric_as_str("bulb_state", "1", "b")
-        .add_metric("connector_state", MetricValueType::BoolItemType(false))
+        .add_metric("connector_state", false)
         .add_metric(
             "temp_01",
-            MetricValueType::DecimalItemType(
-                Decimal::from_f64(34.4).expect("Could not convert value to decimal!"),
-            ),
+            Decimal::new(344, 1),
         )
         .add_metric(
             "temp_02",
-            MetricValueType::DecimalItemType(
-                Decimal::from_f64(36.4).expect("Could not convert value to decimal!"),
-            ),
+            Decimal::new(364, 1),
         )
         .add_metric_as_str("temp_03", "10.4", "d")
         .add_metric_as_str("pwr", "12.231", "d")
         .add_metric_as_str("current", "1.429", "d")
         .add_metric(
             "current_battery",
-            MetricValueType::DecimalItemType(
-                Decimal::from_f64(1.548).expect("Could not convert value to decimal!"),
-            ),
+            Decimal::new(1548, 3),
         )
         .add_metric(
             "status_txt",
-            MetricValueType::TextItemType("in_progress".to_string()),
+            "in_progress",
         )
         .build(true)?;
 
@@ -196,92 +196,78 @@ $ cargo r
     Finished dev [unoptimized + debuginfo] target(s) in 0.02s
      Running `target/debug/iotext-rs`
 iotext_data_row: IoTextDataRow {
-    timestamp: Item {
-        value: TimeUnixMilis(
-            3900237526042,
-        ),
-    },
-    device_id: Item {
-        value: DeviceId(
-            "device_name_001",
-        ),
-    },
-    metrics: Some(
-        [
-            MetricDataItem {
-                name: "val_water_001",
-                value: IntegerItemType(
-                    1234,
-                ),
-            },
-            MetricDataItem {
-                name: "val_water_002",
-                value: IntegerItemType(
-                    15,
-                ),
-            },
-            MetricDataItem {
-                name: "bulb_state",
-                value: BoolItemType(
-                    true,
-                ),
-            },
-            MetricDataItem {
-                name: "connector_state",
-                value: BoolItemType(
-                    false,
-                ),
-            },
-            MetricDataItem {
-                name: "temp_01",
-                value: DecimalItemType(
-                    34.4,
-                ),
-            },
-            MetricDataItem {
-                name: "temp_02",
-                value: DecimalItemType(
-                    36.4,
-                ),
-            },
-            MetricDataItem {
-                name: "temp_03",
-                value: DecimalItemType(
-                    10.4,
-                ),
-            },
-            MetricDataItem {
-                name: "pwr",
-                value: DecimalItemType(
-                    12.231,
-                ),
-            },
-            MetricDataItem {
-                name: "current",
-                value: DecimalItemType(
-                    1.429,
-                ),
-            },
-            MetricDataItem {
-                name: "current_battery",
-                value: DecimalItemType(
-                    1.548,
-                ),
-            },
-            MetricDataItem {
-                name: "status_txt",
-                value: TextItemType(
-                    "in_progress",
-                ),
-            },
-        ],
-    ),
-    crc16: Some(
-        Item {
-            value: Crc(
-                "ECF6",
+    timestamp: 3900237526042,
+    device_id: "device_name_001",
+    metrics: [
+        MetricDataItem {
+            name: "val_water_001",
+            value: IntegerItemType(
+                1234,
             ),
         },
+        MetricDataItem {
+            name: "val_water_002",
+            value: IntegerItemType(
+                15,
+            ),
+        },
+        MetricDataItem {
+            name: "bulb_state",
+            value: BoolItemType(
+                true,
+            ),
+        },
+        MetricDataItem {
+            name: "connector_state",
+            value: BoolItemType(
+                false,
+            ),
+        },
+        MetricDataItem {
+            name: "temp_01",
+            value: DecimalItemType(
+                34.4,
+            ),
+        },
+        MetricDataItem {
+            name: "temp_02",
+            value: DecimalItemType(
+                36.4,
+            ),
+        },
+        MetricDataItem {
+            name: "temp_03",
+            value: DecimalItemType(
+                10.4,
+            ),
+        },
+        MetricDataItem {
+            name: "pwr",
+            value: DecimalItemType(
+                12.231,
+            ),
+        },
+        MetricDataItem {
+            name: "current",
+            value: DecimalItemType(
+                1.429,
+            ),
+        },
+        MetricDataItem {
+            name: "current_battery",
+            value: DecimalItemType(
+                1.548,
+            ),
+        },
+        MetricDataItem {
+            name: "status_txt",
+            value: TextItemType(
+                "in_progress",
+            ),
+        },
+    ],
+    crc16: Some(
+        60662,
     ),
 }
 str_from_iotext_data: t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|bulb_state=b:1,m|connector_state=b:0,m|temp_01=d:34.4,m|temp_02=d:36.4,m|temp_03=d:10.4,m|pwr=d:12.231,m|current=d:1.429,m|current_battery=d:1.548,m|status_txt=t:in_progress,c|ECF6

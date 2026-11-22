@@ -1,9 +1,13 @@
 //! `IoText` data protocol: parser, serializer and builder.
 //!
 //! ```
-//! use iotext_rs::IoTextDataRow;
+//! use iotext_rs::{IoTextDataRow, MetricValueType};
 //!
 //! let row: IoTextDataRow = "t|3900237526042,d|DEV_NAME_002,m|example_metric_name=d:12.07,c|3E3C".parse()?;
+//! assert_eq!(row.timestamp, 3900237526042);
+//! assert_eq!(row.device_id, "DEV_NAME_002");
+//! assert_eq!(row.crc16, Some(0x3E3C));
+//! assert_eq!(row.metric("example_metric_name"), Some(&MetricValueType::from(rust_decimal::Decimal::new(1207, 2))));
 //! assert_eq!(row.to_string(), "t|3900237526042,d|DEV_NAME_002,m|example_metric_name=d:12.07,c|3E3C");
 //!
 //! // Malformed input is reported as an error, never a panic.
@@ -39,28 +43,150 @@ pub const SPECIAL_CHAR_DATA_TYPES_AND_VALUES_SEP: &str = ":";
 pub const SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP: &str = "|";
 pub const SPECIAL_CHAR_SPLIT_DATA_ITEM_SEP: &str = "=";
 
+// ---------------------------------------------------------------------------
+// Protocol codes
+// ---------------------------------------------------------------------------
+
+/// Data type of a metric value: the code between `=` and `:` in `m|name=<code>:value`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum MetricKind {
+    /// `i` - signed 64-bit integer.
+    Integer,
+    /// `b` - boolean, encoded as `0` / `1`.
+    Bool,
+    /// `d` - arbitrary precision decimal.
+    Decimal,
+    /// `t` - text (any characters except `,`).
+    Text,
+}
+
+impl MetricKind {
+    /// All kinds, in protocol order.
+    pub const ALL: [MetricKind; 4] = [
+        MetricKind::Integer,
+        MetricKind::Bool,
+        MetricKind::Decimal,
+        MetricKind::Text,
+    ];
+
+    /// The protocol code, e.g. `"i"`.
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            MetricKind::Integer => "i",
+            MetricKind::Bool => "b",
+            MetricKind::Decimal => "d",
+            MetricKind::Text => "t",
+        }
+    }
+
+    /// Looks a kind up by its protocol code.
+    #[must_use]
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|kind| kind.code() == code)
+    }
+}
+
+impl fmt::Display for MetricKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(self.code())
+    }
+}
+
+impl FromStr for MetricKind {
+    type Err = IoTextError;
+
+    fn from_str(code: &str) -> Result<Self, Self::Err> {
+        Ok(Validators::validate_and_parse_metric_kind_str(code, "")?)
+    }
+}
+
+/// Item type of a message part: the code before `|`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum ItemKind {
+    /// `t` - UNIX timestamp in milliseconds.
+    Timestamp,
+    /// `d` - device id.
+    DeviceId,
+    /// `m` - metric.
+    Metric,
+    /// `c` - CRC-16 of everything before it.
+    Crc,
+}
+
+impl ItemKind {
+    /// All kinds, in protocol order.
+    pub const ALL: [ItemKind; 4] = [
+        ItemKind::Timestamp,
+        ItemKind::DeviceId,
+        ItemKind::Metric,
+        ItemKind::Crc,
+    ];
+
+    /// The protocol code, e.g. `"t"`.
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            ItemKind::Timestamp => "t",
+            ItemKind::DeviceId => "d",
+            ItemKind::Metric => "m",
+            ItemKind::Crc => "c",
+        }
+    }
+
+    /// Looks a kind up by its protocol code.
+    #[must_use]
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|kind| kind.code() == code)
+    }
+}
+
+impl fmt::Display for ItemKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(self.code())
+    }
+}
+
+/// Pre-1.0 metric data type codes.
+#[deprecated(
+    since = "1.0.0",
+    note = "use `MetricKind` (e.g. `MetricKind::Integer.code()`)"
+)]
 #[derive(Debug, Default)]
 pub struct MetricDataTypes {}
 
+#[allow(deprecated)]
 impl MetricDataTypes {
-    pub const INTEGER: &'static str = "i";
-    pub const BOOL: &'static str = "b";
-    pub const DECIMAL: &'static str = "d";
-    pub const TEXT: &'static str = "t";
+    pub const INTEGER: &'static str = MetricKind::Integer.code();
+    pub const BOOL: &'static str = MetricKind::Bool.code();
+    pub const DECIMAL: &'static str = MetricKind::Decimal.code();
+    pub const TEXT: &'static str = MetricKind::Text.code();
 }
 
+/// Pre-1.0 item type codes.
+#[deprecated(
+    since = "1.0.0",
+    note = "use `ItemKind` (e.g. `ItemKind::Timestamp.code()`)"
+)]
 #[derive(Debug, Default)]
 pub struct ItemTypes {}
 
+#[allow(deprecated)]
 impl ItemTypes {
-    pub const TIMESTAMP_MILIS: &'static str = "t";
-    pub const DEVICE_ID: &'static str = "d";
-    pub const METRIC_ITEM: &'static str = "m";
-    pub const CRC: &'static str = "c";
-    //TODO: pub const HEALTH_CHECK: &'static str = "h";
+    pub const TIMESTAMP_MILIS: &'static str = ItemKind::Timestamp.code();
+    pub const DEVICE_ID: &'static str = ItemKind::DeviceId.code();
+    pub const METRIC_ITEM: &'static str = ItemKind::Metric.code();
+    pub const CRC: &'static str = ItemKind::Crc.code();
 }
 
+// ---------------------------------------------------------------------------
+// Metric values
+// ---------------------------------------------------------------------------
+
 #[derive(Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub enum MetricValueType {
     IntegerItemType(i64),
     BoolItemType(bool),
@@ -75,7 +201,44 @@ impl Default for MetricValueType {
 }
 
 impl MetricValueType {
-    /// Parses a metric value from its protocol data type (`i`, `b`, `d`, `t`) and raw value.
+    /// The data type of this value.
+    #[must_use]
+    pub const fn kind(&self) -> MetricKind {
+        match self {
+            MetricValueType::IntegerItemType(_) => MetricKind::Integer,
+            MetricValueType::BoolItemType(_) => MetricKind::Bool,
+            MetricValueType::DecimalItemType(_) => MetricKind::Decimal,
+            MetricValueType::TextItemType(_) => MetricKind::Text,
+        }
+    }
+
+    /// Parses a raw protocol value of the given kind.
+    ///
+    /// # Errors
+    /// Returns [`IoTextError`] when `value` is not valid for `kind`.
+    pub fn from_kind_and_value(kind: MetricKind, value: &str) -> Result<Self, IoTextError> {
+        let parsed = match kind {
+            MetricKind::Integer => value
+                .parse::<i64>()
+                .map(MetricValueType::IntegerItemType)
+                .map_err(|_| IoTextError::InvalidInteger(value.to_string()))?,
+            MetricKind::Bool => match value {
+                "1" => MetricValueType::BoolItemType(true),
+                "0" => MetricValueType::BoolItemType(false),
+                _ => return Err(IoTextError::InvalidBool(value.to_string())),
+            },
+            MetricKind::Decimal => Decimal::from_str(value)
+                .map(MetricValueType::DecimalItemType)
+                .map_err(|_| IoTextError::InvalidDecimal(value.to_string()))?,
+            MetricKind::Text => MetricValueType::TextItemType(
+                Validators::validate_text_value_str(value)?.to_string(),
+            ),
+        };
+        trace!("metric value parsed: {parsed:?}");
+        Ok(parsed)
+    }
+
+    /// Parses a metric value from its protocol data type code (`i`, `b`, `d`, `t`) and raw value.
     ///
     /// # Errors
     /// Returns [`IoTextError`] for an unknown data type or a value that does not match it.
@@ -88,28 +251,8 @@ impl MetricValueType {
         value: &str,
         metric_name: &str,
     ) -> Result<Self, IoTextError> {
-        let metric_data_type =
-            Validators::validate_metric_data_type_str(metric_data_type, metric_name)?;
-        let parsed = match metric_data_type {
-            MetricDataTypes::INTEGER => value
-                .parse::<i64>()
-                .map(MetricValueType::IntegerItemType)
-                .map_err(|_| IoTextError::InvalidInteger(value.to_string()))?,
-            MetricDataTypes::BOOL => match value {
-                "1" => MetricValueType::BoolItemType(true),
-                "0" => MetricValueType::BoolItemType(false),
-                _ => return Err(IoTextError::InvalidBool(value.to_string())),
-            },
-            MetricDataTypes::DECIMAL => Decimal::from_str(value)
-                .map(MetricValueType::DecimalItemType)
-                .map_err(|_| IoTextError::InvalidDecimal(value.to_string()))?,
-            // validate_metric_data_type_str() guarantees TEXT here.
-            _ => MetricValueType::TextItemType(
-                Validators::validate_text_value_str(value)?.to_string(),
-            ),
-        };
-        trace!("metric value parsed: {parsed:?}");
-        Ok(parsed)
+        let kind = Validators::validate_and_parse_metric_kind_str(metric_data_type, metric_name)?;
+        Self::from_kind_and_value(kind, value)
     }
 }
 
@@ -122,49 +265,58 @@ impl<'a> TryFrom<(&'a str, &'a str)> for MetricValueType {
     }
 }
 
+impl From<i64> for MetricValueType {
+    fn from(value: i64) -> Self {
+        MetricValueType::IntegerItemType(value)
+    }
+}
+
+impl From<i32> for MetricValueType {
+    fn from(value: i32) -> Self {
+        MetricValueType::IntegerItemType(i64::from(value))
+    }
+}
+
+impl From<u32> for MetricValueType {
+    fn from(value: u32) -> Self {
+        MetricValueType::IntegerItemType(i64::from(value))
+    }
+}
+
+impl From<bool> for MetricValueType {
+    fn from(value: bool) -> Self {
+        MetricValueType::BoolItemType(value)
+    }
+}
+
+impl From<Decimal> for MetricValueType {
+    fn from(value: Decimal) -> Self {
+        MetricValueType::DecimalItemType(value)
+    }
+}
+
+impl From<String> for MetricValueType {
+    fn from(value: String) -> Self {
+        MetricValueType::TextItemType(value)
+    }
+}
+
+impl From<&str> for MetricValueType {
+    fn from(value: &str) -> Self {
+        MetricValueType::TextItemType(value.to_string())
+    }
+}
+
 impl fmt::Display for MetricValueType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let kind = self.kind();
         let sep = SPECIAL_CHAR_DATA_TYPES_AND_VALUES_SEP;
         match self {
-            MetricValueType::IntegerItemType(value) => {
-                write!(f, "{}{sep}{value}", MetricDataTypes::INTEGER)
-            }
-            MetricValueType::BoolItemType(value) => {
-                write!(f, "{}{sep}{}", MetricDataTypes::BOOL, u8::from(*value))
-            }
-            MetricValueType::DecimalItemType(value) => {
-                write!(f, "{}{sep}{value}", MetricDataTypes::DECIMAL)
-            }
-            MetricValueType::TextItemType(value) => {
-                write!(f, "{}{sep}{value}", MetricDataTypes::TEXT)
-            }
+            MetricValueType::IntegerItemType(value) => write!(f, "{kind}{sep}{value}"),
+            MetricValueType::BoolItemType(value) => write!(f, "{kind}{sep}{}", u8::from(*value)),
+            MetricValueType::DecimalItemType(value) => write!(f, "{kind}{sep}{value}"),
+            MetricValueType::TextItemType(value) => write!(f, "{kind}{sep}{value}"),
         }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum ItemTypeEnum {
-    TimeUnixMilis(u64),
-    DeviceId(String),
-    Crc(String),
-}
-
-impl fmt::Display for ItemTypeEnum {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let sep = SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP;
-        match self {
-            ItemTypeEnum::TimeUnixMilis(value) => {
-                write!(f, "{}{sep}{value}", ItemTypes::TIMESTAMP_MILIS)
-            }
-            ItemTypeEnum::DeviceId(value) => write!(f, "{}{sep}{value}", ItemTypes::DEVICE_ID),
-            ItemTypeEnum::Crc(value) => write!(f, "{}{sep}{value}", ItemTypes::CRC),
-        }
-    }
-}
-
-impl Default for ItemTypeEnum {
-    fn default() -> Self {
-        ItemTypeEnum::DeviceId(String::new())
     }
 }
 
@@ -178,92 +330,80 @@ impl fmt::Display for MetricDataItem {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{}{}{}{}{}",
-            ItemTypes::METRIC_ITEM,
-            SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP,
+            "{}{SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP}{}{SPECIAL_CHAR_SPLIT_DATA_ITEM_SEP}{}",
+            ItemKind::Metric,
             self.name,
-            SPECIAL_CHAR_SPLIT_DATA_ITEM_SEP,
             self.value
         )
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct Item {
-    pub value: ItemTypeEnum,
-}
+// ---------------------------------------------------------------------------
+// Message row
+// ---------------------------------------------------------------------------
 
-impl fmt::Display for Item {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.value.fmt(f)
-    }
-}
-
+/// One `IoText` message.
+///
+/// Rows returned by [`str::parse`] and [`builder::IoTextBuilder::build`] are always valid.
+/// When constructing one by hand, use [`IoTextDataRow::validate`] before sending it.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct IoTextDataRow {
-    pub timestamp: Item,
-    pub device_id: Item,
-    pub metrics: Option<Vec<MetricDataItem>>,
-    pub crc16: Option<Item>,
+    /// UNIX timestamp in milliseconds (`t|...`).
+    pub timestamp: u64,
+    /// Device id (`d|...`).
+    pub device_id: String,
+    /// Metrics (`m|...`), in message order.
+    pub metrics: Vec<MetricDataItem>,
+    /// CRC-16 (`c|XXXX`). When `Some`, [`Display`](fmt::Display) appends a freshly computed CRC.
+    pub crc16: Option<u16>,
 }
 
 impl IoTextDataRow {
-    // Immutable access.
+    /// Value of the first metric with the given name.
     #[must_use]
-    pub fn get_timestamp(&self) -> &ItemTypeEnum {
-        &self.timestamp.value
+    pub fn metric(&self, name: &str) -> Option<&MetricValueType> {
+        self.metrics
+            .iter()
+            .find(|metric| metric.name == name)
+            .map(|metric| &metric.value)
     }
 
-    #[must_use]
-    pub fn get_device_id(&self) -> &ItemTypeEnum {
-        &self.device_id.value
-    }
-
-    #[must_use]
-    pub fn get_metrics(&self) -> &Option<Vec<MetricDataItem>> {
-        &self.metrics
-    }
-
-    #[must_use]
-    pub fn get_crc16(&self) -> &Option<Item> {
-        &self.crc16
-    }
-
-    // Mutable access.
-    pub fn timestamp_mut(&mut self) -> &mut Item {
-        &mut self.timestamp
-    }
-
-    pub fn device_id_mut(&mut self) -> &mut Item {
-        &mut self.device_id
-    }
-
-    pub fn metrics_mut(&mut self) -> &mut Option<Vec<MetricDataItem>> {
-        &mut self.metrics
-    }
-
-    pub fn crc16_mut(&mut self) -> &mut Option<Item> {
-        &mut self.crc16
+    /// Checks the invariants that [`str::parse`] and the builder guarantee.
+    ///
+    /// # Errors
+    /// Returns the first invalid field as [`IoTextError`].
+    pub fn validate(&self) -> Result<(), IoTextError> {
+        Validators::validate_device_id_str(&self.device_id)?;
+        for metric in &self.metrics {
+            Validators::validate_metric_name_str(&metric.name)?;
+            if let MetricValueType::TextItemType(text) = &metric.value {
+                Validators::validate_text_value_str(text)?;
+            }
+        }
+        Ok(())
     }
 
     /// The message without the CRC item - exactly the bytes the CRC is computed over.
     fn body_to_string(&self) -> String {
         use std::fmt::Write;
         let mut body = format!(
-            "{}{SPECIAL_CHAR_DATA_ITEMS_SEP}{}",
-            self.timestamp, self.device_id
+            "{}{SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP}{}{SPECIAL_CHAR_DATA_ITEMS_SEP}{}{SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP}{}",
+            ItemKind::Timestamp,
+            self.timestamp,
+            ItemKind::DeviceId,
+            self.device_id
         );
-        for metric in self.metrics.iter().flatten() {
+        for metric in &self.metrics {
             // Writing into a String cannot fail.
             let _ = write!(body, "{SPECIAL_CHAR_DATA_ITEMS_SEP}{metric}");
         }
         body
     }
 
-    /// Computes the CRC-16 item value for the current content of this row.
+    /// Computes the CRC-16 for the current content of this row.
     #[must_use]
-    pub fn compute_crc16(&self) -> String {
-        Tools::crc16(&self.body_to_string(), CRC16_POLY_DEFAULT)
+    pub fn compute_crc16(&self) -> u16 {
+        crc16(self.body_to_string().as_bytes())
     }
 
     /// Serializes the row; with `add_crc16` a freshly computed `c|XXXX` item is appended.
@@ -271,11 +411,11 @@ impl IoTextDataRow {
     pub fn to_iotext_string(&self, add_crc16: bool) -> String {
         let mut msg = self.body_to_string();
         if add_crc16 {
-            let crc = Tools::crc16(&msg, CRC16_POLY_DEFAULT);
+            let crc = crc16(msg.as_bytes());
             msg.push_str(SPECIAL_CHAR_DATA_ITEMS_SEP);
-            msg.push_str(ItemTypes::CRC);
+            msg.push_str(ItemKind::Crc.code());
             msg.push_str(SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP);
-            msg.push_str(&crc);
+            msg.push_str(&crc16_to_hex(crc));
         }
         msg
     }
@@ -300,7 +440,7 @@ impl FromStr for IoTextDataRow {
         let mut timestamp: Option<u64> = None;
         let mut device_id: Option<&str> = None;
         let mut metrics: Vec<MetricDataItem> = Vec::new();
-        let mut crc16: Option<&str> = None;
+        let mut crc: Option<u16> = None;
         let mut part_start = 0usize;
 
         for part in data_row.split(SPECIAL_CHAR_DATA_ITEMS_SEP) {
@@ -308,16 +448,18 @@ impl FromStr for IoTextDataRow {
             let this_part_start = part_start;
             part_start += part.len() + SPECIAL_CHAR_DATA_ITEMS_SEP.len();
 
-            if crc16.is_some() {
+            if crc.is_some() {
                 return Err(IoTextError::CrcNotLast);
             }
 
-            let (item_type, value) = part
+            let (item_code, value) = part
                 .split_once(SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP)
                 .ok_or_else(|| IoTextError::MalformedItem(part.to_string()))?;
+            let item_kind = ItemKind::from_code(item_code)
+                .ok_or_else(|| IoTextError::UnknownItemType(item_code.to_string()))?;
 
-            match item_type {
-                ItemTypes::METRIC_ITEM => {
+            match item_kind {
+                ItemKind::Metric => {
                     let malformed = || IoTextError::MalformedMetric(part.to_string());
                     let (name, typed_value) = value
                         .split_once(SPECIAL_CHAR_SPLIT_DATA_ITEM_SEP)
@@ -333,54 +475,38 @@ impl FromStr for IoTextDataRow {
                         )?,
                     });
                 }
-                ItemTypes::TIMESTAMP_MILIS => {
+                ItemKind::Timestamp => {
                     if timestamp.is_some() {
                         return Err(IoTextError::DuplicatedItem(part.to_string()));
                     }
                     timestamp = Some(Validators::validate_and_parse_timestamp_str(value)?);
                 }
-                ItemTypes::DEVICE_ID => {
+                ItemKind::DeviceId => {
                     if device_id.is_some() {
                         return Err(IoTextError::DuplicatedItem(part.to_string()));
                     }
                     device_id = Some(Validators::validate_device_id_str(value)?);
                 }
-                ItemTypes::CRC => {
-                    let received = Validators::validate_crc_str(value)?;
+                ItemKind::Crc => {
+                    let received = Validators::validate_and_parse_crc_str(value)?;
                     // CRC covers everything before ",c|XXXX". ',' is ASCII, so this is a char boundary.
                     let body = data_row
                         .get(..this_part_start.saturating_sub(SPECIAL_CHAR_DATA_ITEMS_SEP.len()))
                         .unwrap_or_default();
-                    let computed = Tools::crc16(body, CRC16_POLY_DEFAULT);
-                    if !computed.eq_ignore_ascii_case(received) {
-                        return Err(IoTextError::CrcMismatch {
-                            received: received.to_string(),
-                            computed,
-                        });
+                    let computed = crc16(body.as_bytes());
+                    if computed != received {
+                        return Err(IoTextError::CrcMismatch { received, computed });
                     }
-                    crc16 = Some(received);
+                    crc = Some(received);
                 }
-                other => return Err(IoTextError::UnknownItemType(other.to_string())),
             }
         }
 
         Ok(IoTextDataRow {
-            timestamp: Item {
-                value: ItemTypeEnum::TimeUnixMilis(timestamp.ok_or(IoTextError::MissingTimestamp)?),
-            },
-            device_id: Item {
-                value: ItemTypeEnum::DeviceId(
-                    device_id.ok_or(IoTextError::MissingDeviceId)?.to_string(),
-                ),
-            },
-            metrics: if metrics.is_empty() {
-                None
-            } else {
-                Some(metrics)
-            },
-            crc16: crc16.map(|crc| Item {
-                value: ItemTypeEnum::Crc(crc.to_string()),
-            }),
+            timestamp: timestamp.ok_or(IoTextError::MissingTimestamp)?,
+            device_id: device_id.ok_or(IoTextError::MissingDeviceId)?.to_string(),
+            metrics,
+            crc16: crc,
         })
     }
 }

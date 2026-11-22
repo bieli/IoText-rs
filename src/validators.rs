@@ -1,7 +1,7 @@
 pub struct Validators;
 
 use crate::{
-    MetricDataTypes, SPECIAL_CHAR_DATA_ITEMS_SEP, SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP,
+    MetricKind, SPECIAL_CHAR_DATA_ITEMS_SEP, SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP,
     SPECIAL_CHAR_DATA_TYPES_AND_VALUES_SEP, SPECIAL_CHAR_SPLIT_DATA_ITEM_SEP,
 };
 use thiserror::Error;
@@ -154,6 +154,14 @@ impl Validators {
     }
 
     /// # Errors
+    /// Returns [`CrcError`] when the value is not exactly four hex digits.
+    pub fn validate_and_parse_crc_str(crc_str: &str) -> Result<u16, CrcError> {
+        let crc_str = Self::validate_crc_str(crc_str)?;
+        u16::from_str_radix(crc_str, 16)
+            .map_err(|_| CrcError::CrcExpectedOnlyAsciiCharacters(crc_str.to_string()))
+    }
+
+    /// # Errors
     /// Returns [`MetricNameError`] when the name is empty, non-ASCII, too long
     /// or contains a protocol separator.
     pub fn validate_metric_name_str(metric_name_str: &str) -> Result<&str, MetricNameError> {
@@ -192,22 +200,28 @@ impl Validators {
         metric_data_type_str: &'a str,
         metric_name: &str,
     ) -> Result<&'a str, MetricDataTypeError> {
+        Self::validate_and_parse_metric_kind_str(metric_data_type_str, metric_name)
+            .map(|_| metric_data_type_str)
+    }
+
+    /// # Errors
+    /// Returns [`MetricDataTypeError`] when the type is empty or not one of `i`, `b`, `d`, `t`.
+    pub fn validate_and_parse_metric_kind_str(
+        metric_data_type_str: &str,
+        metric_name: &str,
+    ) -> Result<MetricKind, MetricDataTypeError> {
         if metric_data_type_str.trim().is_empty() {
             return Err(MetricDataTypeError::MetricDataTypeIsEmpty(
                 metric_data_type_str.to_string(),
             ));
         }
 
-        match metric_data_type_str {
-            MetricDataTypes::INTEGER
-            | MetricDataTypes::BOOL
-            | MetricDataTypes::TEXT
-            | MetricDataTypes::DECIMAL => Ok(metric_data_type_str),
-            _ => Err(MetricDataTypeError::UnknownMetricDataType(
+        MetricKind::from_code(metric_data_type_str).ok_or_else(|| {
+            MetricDataTypeError::UnknownMetricDataType(
                 metric_data_type_str.to_string(),
                 metric_name.to_string(),
-            )),
-        }
+            )
+        })
     }
 
     /// Text values may contain any character except the items separator `,`.
