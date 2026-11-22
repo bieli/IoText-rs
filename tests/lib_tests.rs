@@ -294,4 +294,63 @@ mod lib_tests {
         });
         assert!(matches!(r.validate(), Err(IoTextError::TextValue(_))));
     }
+
+    // ---------- regressions found by cargo fuzz ----------
+
+    #[test]
+    fn test_fuzz_regression_negative_decimal_zero_is_canonical() {
+        // Rounds to a *negative* zero inside rust_decimal.
+        let row: IoTextDataRow = "t|1,d|x,m|a=d:-.000000000000000000000001278965377E-6"
+            .parse()
+            .unwrap();
+        let canonical = row.to_string();
+        assert_eq!(canonical, "t|1,d|x,m|a=d:0.0000000000000000000000000000");
+        assert_eq!(
+            canonical.parse::<IoTextDataRow>().unwrap().to_string(),
+            canonical
+        );
+    }
+
+    #[test]
+    fn test_hand_built_negative_zero_serializes_without_sign() {
+        let value = MetricValueType::DecimalItemType(Decimal::from_parts(0, 0, 0, true, 2));
+        assert_eq!(value.to_string(), "d:0.00");
+    }
+
+    // ---------- defaults and deprecated 0.5.x API ----------
+
+    #[test]
+    fn test_defaults() {
+        assert_eq!(
+            MetricValueType::default(),
+            MetricValueType::TextItemType(String::new())
+        );
+        assert_eq!(IoTextDataRow::default().to_string(), "t|0,d|");
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_deprecated_code_constants_match_enums() {
+        use iotext_rs::{ItemTypes, MetricDataTypes};
+        assert_eq!(MetricDataTypes::INTEGER, MetricKind::Integer.code());
+        assert_eq!(MetricDataTypes::BOOL, MetricKind::Bool.code());
+        assert_eq!(MetricDataTypes::DECIMAL, MetricKind::Decimal.code());
+        assert_eq!(MetricDataTypes::TEXT, MetricKind::Text.code());
+        assert_eq!(ItemTypes::TIMESTAMP_MILIS, ItemKind::Timestamp.code());
+        assert_eq!(ItemTypes::DEVICE_ID, ItemKind::DeviceId.code());
+        assert_eq!(ItemTypes::METRIC_ITEM, ItemKind::Metric.code());
+        assert_eq!(ItemTypes::CRC, ItemKind::Crc.code());
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_deprecated_extract_metric_value_type() {
+        use iotext_rs::IoTextData;
+        let row = IoTextDataRow::default();
+        assert_eq!(
+            row.extract_metric_value_type("i", "42"),
+            Ok(MetricValueType::IntegerItemType(42))
+        );
+        assert!(row.extract_metric_value_type("i", "x").is_err());
+    }
 }

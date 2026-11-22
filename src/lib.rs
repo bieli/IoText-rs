@@ -259,7 +259,7 @@ impl MetricValueType {
                 _ => return Err(IoTextError::InvalidBool(value.to_string())),
             },
             MetricKind::Decimal => Decimal::from_str(value)
-                .map(MetricValueType::DecimalItemType)
+                .map(|d| MetricValueType::DecimalItemType(canonical_decimal(d)))
                 .map_err(|_| IoTextError::InvalidDecimal(value.to_string()))?,
             MetricKind::Text => MetricValueType::TextItemType(
                 Validators::validate_text_value_str(value)?.to_string(),
@@ -270,6 +270,17 @@ impl MetricValueType {
     }
 
     /// Parses a metric value from its protocol data type code (`i`, `b`, `d`, `t`) and raw value.
+    ///
+    /// ```
+    /// use iotext_rs::{IoTextError, MetricValueType};
+    ///
+    /// assert_eq!(MetricValueType::from_type_and_value("i", "42"), Ok(42.into()));
+    /// assert_eq!(MetricValueType::from_type_and_value("b", "1"), Ok(true.into()));
+    /// assert_eq!(
+    ///     MetricValueType::from_type_and_value("b", "yes"),
+    ///     Err(IoTextError::InvalidBool("yes".into()))
+    /// );
+    /// ```
     ///
     /// # Errors
     /// Returns [`IoTextError`] for an unknown data type or a value that does not match it.
@@ -285,6 +296,16 @@ impl MetricValueType {
         let kind = Validators::validate_and_parse_metric_kind_str(metric_data_type, metric_name)?;
         Self::from_kind_and_value(kind, value)
     }
+}
+
+/// `rust_decimal` can produce a negative zero (e.g. `-1E-40` rounds to `-0.000…`), which
+/// prints as `-0.000…` but parses back as positive zero. Normalizing keeps the
+/// text form stable across parse/serialize round-trips. Found by `cargo fuzz`.
+fn canonical_decimal(mut value: Decimal) -> Decimal {
+    if value.is_zero() {
+        value.set_sign_positive(true);
+    }
+    value
 }
 
 impl<'a> TryFrom<(&'a str, &'a str)> for MetricValueType {
@@ -345,7 +366,9 @@ impl fmt::Display for MetricValueType {
         match self {
             MetricValueType::IntegerItemType(value) => write!(f, "{kind}{sep}{value}"),
             MetricValueType::BoolItemType(value) => write!(f, "{kind}{sep}{}", u8::from(*value)),
-            MetricValueType::DecimalItemType(value) => write!(f, "{kind}{sep}{value}"),
+            MetricValueType::DecimalItemType(value) => {
+                write!(f, "{kind}{sep}{}", canonical_decimal(*value))
+            }
             MetricValueType::TextItemType(value) => write!(f, "{kind}{sep}{value}"),
         }
     }
@@ -396,6 +419,15 @@ pub struct IoTextDataRow {
 
 impl IoTextDataRow {
     /// Value of the first metric with the given name.
+    ///
+    /// ```
+    /// use iotext_rs::{IoTextDataRow, MetricValueType};
+    ///
+    /// let row: IoTextDataRow = "t|1,d|dev,m|temp=i:21,m|on=b:1".parse()?;
+    /// assert_eq!(row.metric("on"), Some(&MetricValueType::BoolItemType(true)));
+    /// assert_eq!(row.metric("missing"), None);
+    /// # Ok::<(), iotext_rs::IoTextError>(())
+    /// ```
     #[must_use]
     pub fn metric(&self, name: &str) -> Option<&MetricValueType> {
         self.metrics
@@ -405,6 +437,15 @@ impl IoTextDataRow {
     }
 
     /// Checks the invariants that [`str::parse`] and the builder guarantee.
+    ///
+    /// ```
+    /// use iotext_rs::IoTextDataRow;
+    ///
+    /// let mut row = IoTextDataRow { timestamp: 1, device_id: "dev".into(), ..Default::default() };
+    /// assert!(row.validate().is_ok());
+    /// row.device_id = "bad,id".into(); // would corrupt the message
+    /// assert!(row.validate().is_err());
+    /// ```
     ///
     /// # Errors
     /// Returns the first invalid field as [`IoTextError`].
@@ -443,6 +484,14 @@ impl IoTextDataRow {
     }
 
     /// Serializes the row; with `add_crc16` a freshly computed `c|XXXX` item is appended.
+    ///
+    /// ```
+    /// use iotext_rs::IoTextDataRow;
+    ///
+    /// let row = IoTextDataRow { timestamp: 3900237526042, device_id: "DEV_NAME_002".into(), ..Default::default() };
+    /// assert_eq!(row.to_iotext_string(false), "t|3900237526042,d|DEV_NAME_002");
+    /// assert_eq!(row.to_iotext_string(true), "t|3900237526042,d|DEV_NAME_002,c|A4BA");
+    /// ```
     #[must_use]
     pub fn to_iotext_string(&self, add_crc16: bool) -> String {
         let mut msg = self.body_to_string();
