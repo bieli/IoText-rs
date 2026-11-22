@@ -1,7 +1,7 @@
 use rust_decimal::prelude::*;
 
 use iotext_rs::validators::{DeviceIdError, MetricDataTypeError, MetricNameError};
-use iotext_rs::{IoTextDataRow, IoTextError, Item, ItemTypeEnum, MetricValueType};
+use iotext_rs::{crc16, IoTextDataRow, IoTextError, ItemKind, MetricKind, MetricValueType};
 
 #[cfg(test)]
 mod lib_tests {
@@ -9,12 +9,8 @@ mod lib_tests {
 
     fn row(ts: u64, device_id: &str) -> IoTextDataRow {
         IoTextDataRow {
-            timestamp: Item {
-                value: ItemTypeEnum::TimeUnixMilis(ts),
-            },
-            device_id: Item {
-                value: ItemTypeEnum::DeviceId(device_id.to_string()),
-            },
+            timestamp: ts,
+            device_id: device_id.to_string(),
             ..Default::default()
         }
     }
@@ -124,26 +120,20 @@ mod lib_tests {
     #[test]
     fn test_parse_iotext_str_for_timestamp_without_measurements() {
         let result: IoTextDataRow = "t|3900237526044,d|device_name_004".parse().unwrap();
-        assert_eq!(
-            result.get_timestamp(),
-            &ItemTypeEnum::TimeUnixMilis(3900237526044)
-        );
+        assert_eq!(result.timestamp, 3900237526044);
     }
 
     #[test]
     fn test_parse_iotext_str_for_device_id_without_measurements() {
         let result: IoTextDataRow = "t|3900237526045,d|device_name_005".parse().unwrap();
-        assert_eq!(
-            result.get_device_id(),
-            &ItemTypeEnum::DeviceId("device_name_005".to_string())
-        );
-        assert_eq!(result.get_metrics(), &None);
+        assert_eq!(result.device_id, "device_name_005");
+        assert!(result.metrics.is_empty());
     }
 
     #[test]
     fn test_parse_iotext_str_for_device_id_without_measurements_with_crc16() {
         let result: IoTextDataRow = "t|3900237526045,d|device_name_005,c|6F89".parse().unwrap();
-        assert_eq!(result.get_crc16().as_ref().unwrap().to_string(), "c|6F89");
+        assert_eq!(result.crc16, Some(0x6F89));
     }
 
     #[test]
@@ -194,17 +184,17 @@ mod lib_tests {
         assert_eq!(
             parse_err("t|1,d|x,c|0000"),
             IoTextError::CrcMismatch {
-                received: "0000".into(),
-                computed: iotext_rs::Tools::crc16("t|1,d|x", iotext_rs::CRC16_POLY_DEFAULT),
+                received: 0x0000,
+                computed: crc16(b"t|1,d|x"),
             }
         );
     }
 
     #[test]
     fn test_parse_error_crc_not_last() {
-        let crc = iotext_rs::Tools::crc16("t|1,d|x", iotext_rs::CRC16_POLY_DEFAULT);
+        let crc = crc16(b"t|1,d|x");
         assert_eq!(
-            parse_err(&format!("t|1,d|x,c|{crc},m|a=i:1")),
+            parse_err(&format!("t|1,d|x,c|{crc:04X},m|a=i:1")),
             IoTextError::CrcNotLast
         );
     }
@@ -260,5 +250,41 @@ mod lib_tests {
             "t|1,d|x,m|a=i:5"
         );
         assert!(data_obj.parse_iotext_str("t|1,d|x,m|a").is_err());
+    }
+
+    // ---------- protocol code enums ----------
+
+    #[test]
+    fn test_metric_kind_codes_roundtrip() {
+        for kind in MetricKind::ALL {
+            assert_eq!(MetricKind::from_code(kind.code()), Some(kind));
+            assert_eq!(kind.code().parse::<MetricKind>(), Ok(kind));
+        }
+        assert_eq!(MetricKind::from_code("x"), None);
+        assert!("".parse::<MetricKind>().is_err());
+        assert_eq!(MetricValueType::from(7).kind(), MetricKind::Integer);
+    }
+
+    #[test]
+    fn test_item_kind_codes_roundtrip() {
+        for kind in ItemKind::ALL {
+            assert_eq!(ItemKind::from_code(kind.code()), Some(kind));
+            assert_eq!(kind.to_string(), kind.code());
+        }
+        assert_eq!(ItemKind::from_code("h"), None);
+    }
+
+    #[test]
+    fn test_validate_hand_built_row() {
+        let mut r = row(1, "dev");
+        assert_eq!(r.validate(), Ok(()));
+        r.device_id = "bad,id".into();
+        assert!(matches!(r.validate(), Err(IoTextError::DeviceId(_))));
+        let mut r = row(1, "dev");
+        r.metrics.push(iotext_rs::MetricDataItem {
+            name: "t".into(),
+            value: "a,b".into(),
+        });
+        assert!(matches!(r.validate(), Err(IoTextError::TextValue(_))));
     }
 }

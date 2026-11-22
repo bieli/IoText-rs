@@ -31,8 +31,8 @@ pub enum IoTextError {
     #[error("CRC item 'c|...' must be the last item in message")]
     CrcNotLast,
 
-    #[error("CRC mismatch: message contains '{received}', computed '{computed}'")]
-    CrcMismatch { received: String, computed: String },
+    #[error("CRC mismatch: message contains '{received:04X}', computed '{computed:04X}'")]
+    CrcMismatch { received: u16, computed: u16 },
 
     #[error("Invalid INTEGER (i64) metric value: '{0}'")]
     InvalidInteger(String),

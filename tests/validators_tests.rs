@@ -8,7 +8,7 @@ mod validators_tests {
         CrcError, MetricDataTypeError, MetricNameError, METRIC_NAME_MAX_LEN,
     };
     use iotext_rs::validators::{DeviceIdError, TimestampError, DEVICE_ID_MAX_LEN};
-    use iotext_rs::MetricDataTypes;
+    use iotext_rs::MetricKind;
 
     #[test]
     fn test_valid_timestamp() {
@@ -254,7 +254,7 @@ mod validators_tests {
 
     #[test]
     fn test_valid_metric_data_type_known_integer() {
-        let metric_data_type = MetricDataTypes::INTEGER;
+        let metric_data_type = MetricKind::Integer.code();
         let metric_name = "test_metric666";
         let result = Validators::validate_metric_data_type_str(metric_data_type, metric_name);
         assert!(result.is_ok());
@@ -263,7 +263,7 @@ mod validators_tests {
 
     #[test]
     fn test_valid_metric_data_type_known_bool() {
-        let metric_data_type = MetricDataTypes::BOOL;
+        let metric_data_type = MetricKind::Bool.code();
         let metric_name = "test_metric555";
         let result = Validators::validate_metric_data_type_str(metric_data_type, metric_name);
         assert!(result.is_ok());
@@ -272,7 +272,7 @@ mod validators_tests {
 
     #[test]
     fn test_valid_metric_data_type_known_text() {
-        let metric_data_type = MetricDataTypes::TEXT;
+        let metric_data_type = MetricKind::Text.code();
         let metric_name = "test_metric444";
         let result = Validators::validate_metric_data_type_str(metric_data_type, metric_name);
         assert!(result.is_ok());
@@ -281,7 +281,7 @@ mod validators_tests {
 
     #[test]
     fn test_valid_metric_data_type_known_decimal() {
-        let metric_data_type = MetricDataTypes::DECIMAL;
+        let metric_data_type = MetricKind::Decimal.code();
         let metric_name = "test_metric333";
         let result = Validators::validate_metric_data_type_str(metric_data_type, metric_name);
         assert!(result.is_ok());
