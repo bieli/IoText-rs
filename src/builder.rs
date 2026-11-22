@@ -1,7 +1,8 @@
 use crate::validators::Validators;
-use crate::{IoTextDataRow, IoTextError, Item, ItemTypeEnum, MetricDataItem, MetricValueType};
+use crate::{IoTextDataRow, IoTextError, MetricDataItem, MetricKind, MetricValueType};
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use log::trace;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Kept for source compatibility; the builder now reports [`IoTextError`].
 #[deprecated(since = "1.0.0", note = "use `iotext_rs::IoTextError`")]
@@ -11,15 +12,21 @@ pub type IoTextBuilderError = IoTextError;
 /// error is remembered and returned by [`IoTextBuilder::build`].
 ///
 /// ```
-/// use iotext_rs::{builder::IoTextBuilder, MetricValueType};
+/// use iotext_rs::builder::IoTextBuilder;
+/// use rust_decimal::Decimal;
 ///
 /// let row = IoTextBuilder::new()
 ///     .timestamp(3900237526042)
 ///     .device_id("DEV_NAME_002")
-///     .add_metric("count", MetricValueType::IntegerItemType(7))
-///     .add_metric_as_str("temp", "12.07", "d")
+///     .add_metric("count", 7)
+///     .add_metric("temp", Decimal::new(1207, 2))
+///     .add_metric("ok", true)
+///     .add_metric("status", "in_progress")
 ///     .build(true)?;
-/// assert_eq!(row.to_string(), "t|3900237526042,d|DEV_NAME_002,m|count=i:7,m|temp=d:12.07,c|CC8C");
+/// assert_eq!(
+///     row.to_string(),
+///     "t|3900237526042,d|DEV_NAME_002,m|count=i:7,m|temp=d:12.07,m|ok=b:1,m|status=t:in_progress,c|8E25"
+/// );
 ///
 /// assert!(IoTextBuilder::new().timestamp(1).device_id("bad,id").build(false).is_err());
 /// # Ok::<(), iotext_rs::IoTextError>(())
@@ -34,6 +41,7 @@ pub struct IoTextBuilder {
 
 impl IoTextBuilder {
     #[must_use]
+    /// Creates an empty builder; `timestamp` and `device_id` must be set before [`build`](Self::build).
     pub fn new() -> Self {
         Self::default()
     }
@@ -43,15 +51,37 @@ impl IoTextBuilder {
         self.error.get_or_insert(err);
     }
 
+    fn push_metric(&mut self, name: &str, value: MetricValueType) {
+        let validated = Validators::validate_metric_name_str(name)
+            .map_err(IoTextError::from)
+            .and_then(|name| {
+                if let MetricValueType::TextItemType(text) = &value {
+                    Validators::validate_text_value_str(text)?;
+                }
+                Ok(name)
+            });
+        match validated {
+            Ok(name) => self.metrics.push(MetricDataItem {
+                name: name.to_string(),
+                value,
+            }),
+            Err(err) => self.record(err),
+        }
+    }
+
     #[must_use]
+    /// Sets the UNIX timestamp in milliseconds.
     pub fn timestamp(mut self, timestamp: u64) -> Self {
         trace!("IoTextBuilder::timestamp() - timestamp: {timestamp}");
         self.timestamp = Some(timestamp);
         self
     }
 
+    /// Sets the timestamp to the current system time (requires the `std` feature).
+    #[cfg(feature = "std")]
     #[must_use]
     pub fn current_timestamp(mut self) -> Self {
+        use std::time::{SystemTime, UNIX_EPOCH};
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .ok()
@@ -65,6 +95,7 @@ impl IoTextBuilder {
     }
 
     #[must_use]
+    /// Sets the device id; an invalid id is reported by [`build`](Self::build).
     pub fn device_id(mut self, device_id: &str) -> Self {
         trace!("IoTextBuilder::device_id() - device_id: {device_id}");
         match Validators::validate_device_id_str(device_id) {
@@ -74,49 +105,40 @@ impl IoTextBuilder {
         self
     }
 
+    /// Adds a metric; accepts `i64`/`i32`/`u32`, `bool`, `Decimal`, `String`/`&str`
+    /// or a [`MetricValueType`].
     #[must_use]
-    pub fn add_metric(mut self, name: &str, metric_data_type_value: MetricValueType) -> Self {
-        trace!("IoTextBuilder::add_metric - name: {name}, value: {metric_data_type_value}");
-        let validated = Validators::validate_metric_name_str(name)
-            .map_err(IoTextError::from)
-            .and_then(|name| {
-                if let MetricValueType::TextItemType(text) = &metric_data_type_value {
-                    Validators::validate_text_value_str(text)?;
-                }
-                Ok(name)
-            });
-        match validated {
-            Ok(name) => self.metrics.push(MetricDataItem {
-                name: name.to_string(),
-                value: metric_data_type_value,
-            }),
+    pub fn add_metric(mut self, name: &str, value: impl Into<MetricValueType>) -> Self {
+        let value = value.into();
+        trace!("IoTextBuilder::add_metric - name: {name}, value: {value}");
+        self.push_metric(name, value);
+        self
+    }
+
+    /// Adds a metric from a raw protocol value of the given kind, e.g. `("temp", MetricKind::Decimal, "12.07")`.
+    #[must_use]
+    pub fn add_metric_of_kind(mut self, name: &str, kind: MetricKind, value: &str) -> Self {
+        trace!("IoTextBuilder::add_metric_of_kind - name: {name}, kind: {kind}, value: {value}");
+        match MetricValueType::from_kind_and_value(kind, value) {
+            Ok(value) => self.push_metric(name, value),
             Err(err) => self.record(err),
         }
         self
     }
 
+    /// Adds a metric from a raw protocol value and data type code (`i`, `b`, `d`, `t`).
     #[must_use]
     pub fn add_metric_as_str(mut self, name: &str, value: &str, metric_data_type: &str) -> Self {
         trace!(
             "IoTextBuilder::add_metric_as_str - name: {name}, value: {value}, metric_data_type: {metric_data_type}"
         );
-        let parsed = Validators::validate_metric_name_str(name)
-            .map_err(IoTextError::from)
-            .and_then(|name| {
-                Validators::validate_metric_data_type_str(metric_data_type, name)?;
-                Ok((
-                    name,
-                    MetricValueType::from_type_and_value(metric_data_type, value)?,
-                ))
-            });
-        match parsed {
-            Ok((name, value)) => self.metrics.push(MetricDataItem {
-                name: name.to_string(),
-                value,
-            }),
-            Err(err) => self.record(err),
+        match Validators::validate_and_parse_metric_kind_str(metric_data_type, name) {
+            Ok(kind) => self.add_metric_of_kind(name, kind, value),
+            Err(err) => {
+                self.record(err.into());
+                self
+            }
         }
-        self
     }
 
     /// # Errors
@@ -129,26 +151,13 @@ impl IoTextBuilder {
         }
 
         let mut row = IoTextDataRow {
-            timestamp: Item {
-                value: ItemTypeEnum::TimeUnixMilis(
-                    self.timestamp.ok_or(IoTextError::MissingTimestamp)?,
-                ),
-            },
-            device_id: Item {
-                value: ItemTypeEnum::DeviceId(self.device_id.ok_or(IoTextError::MissingDeviceId)?),
-            },
-            metrics: if self.metrics.is_empty() {
-                None
-            } else {
-                Some(self.metrics)
-            },
+            timestamp: self.timestamp.ok_or(IoTextError::MissingTimestamp)?,
+            device_id: self.device_id.ok_or(IoTextError::MissingDeviceId)?,
+            metrics: self.metrics,
             crc16: None,
         };
-
         if add_crc {
-            row.crc16 = Some(Item {
-                value: ItemTypeEnum::Crc(row.compute_crc16()),
-            });
+            row.crc16 = Some(row.compute_crc16());
         }
         Ok(row)
     }

@@ -1,12 +1,15 @@
+//! `IoTextBuilder` tests.
+
 use iotext_rs::builder::IoTextBuilder;
 
 #[cfg(test)]
 mod builder_tests {
     use super::*;
-    use iotext_rs::validators::{DeviceIdError, MetricDataTypeError, TextValueError};
     use iotext_rs::IoTextError;
     use iotext_rs::MetricValueType;
-    use iotext_rs::{ItemTypeEnum, MetricDataItem};
+    use iotext_rs::validators::{DeviceIdError, MetricDataTypeError, TextValueError};
+    use iotext_rs::{MetricDataItem, MetricKind};
+    use rust_decimal::Decimal;
 
     use std::sync::Once;
 
@@ -26,13 +29,11 @@ mod builder_tests {
             .device_id("device123")
             .build(false)
             .unwrap();
-        assert_eq!(
-            iotext_data_row.timestamp.value,
-            ItemTypeEnum::TimeUnixMilis(1616161616)
-        );
+        assert_eq!(iotext_data_row.timestamp, 1616161616);
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn test_valid_current_timestamp() {
         setup();
         let iotext_data_row = IoTextBuilder::new()
@@ -40,37 +41,31 @@ mod builder_tests {
             .device_id("device123")
             .build(false)
             .unwrap();
-        assert!(matches!(
-            iotext_data_row.timestamp.value,
-            ItemTypeEnum::TimeUnixMilis(_)
-        ));
+        assert!(iotext_data_row.timestamp > 1_700_000_000_000);
     }
 
     #[test]
     fn test_valid_device_id() {
         setup();
         let iotext_data_row = IoTextBuilder::new()
-            .current_timestamp()
+            .timestamp(1)
             .device_id("device123")
             .build(false)
             .unwrap();
-        assert_eq!(
-            iotext_data_row.device_id.value,
-            ItemTypeEnum::DeviceId("device123".to_string())
-        );
+        assert_eq!(iotext_data_row.device_id, "device123");
     }
 
     #[test]
     fn test_valid_add_metric() {
         setup();
         let iotext_data_row = IoTextBuilder::new()
-            .current_timestamp()
+            .timestamp(1)
             .device_id("device123")
             .add_metric("temp1", MetricValueType::TextItemType("12".to_string()))
             .add_metric("temp2", MetricValueType::IntegerItemType(23))
             .build(false)
             .unwrap();
-        let metrics = iotext_data_row.get_metrics().clone().unwrap_or_default();
+        let metrics = &iotext_data_row.metrics;
         assert_eq!(metrics.len(), 2);
         assert_eq!(
             metrics.first().unwrap(),
@@ -92,12 +87,12 @@ mod builder_tests {
     fn test_valid_add_metric_as_str() {
         setup();
         let iotext_data_row = IoTextBuilder::new()
-            .current_timestamp()
+            .timestamp(1)
             .device_id("dev01")
             .add_metric_as_str("temp1", "112", "i")
             .build(false)
             .unwrap();
-        let metrics = iotext_data_row.get_metrics().clone().unwrap_or_default();
+        let metrics = &iotext_data_row.metrics;
         assert_eq!(metrics.len(), 1);
         assert_eq!(
             metrics.first().unwrap(),
@@ -113,7 +108,7 @@ mod builder_tests {
         setup();
         // 0.5.x silently stored an empty TEXT value here.
         let result = IoTextBuilder::new()
-            .current_timestamp()
+            .timestamp(1)
             .device_id("dev02")
             .add_metric_as_str("temp1", "113", "unknown")
             .build(false);
@@ -236,5 +231,43 @@ mod builder_tests {
             "t|3900237526042,d|DEV_NAME_002,m|example_metric_name=d:12.07,c|3E3C"
         );
         assert_eq!(msg.parse::<iotext_rs::IoTextDataRow>().unwrap(), row);
+    }
+
+    #[test]
+    fn test_add_metric_accepts_plain_rust_values() {
+        setup();
+        let row = IoTextBuilder::new()
+            .timestamp(1)
+            .device_id("dev")
+            .add_metric("i64", 5_i64)
+            .add_metric("i32", -3)
+            .add_metric("u32", 4_u32)
+            .add_metric("flag", true)
+            .add_metric("dec", Decimal::new(1207, 2))
+            .add_metric("txt", "abc")
+            .add_metric("owned", String::from("xyz"))
+            .add_metric_of_kind("raw", MetricKind::Decimal, "1.50")
+            .build(false)
+            .unwrap();
+        assert_eq!(
+            row.to_string(),
+            "t|1,d|dev,m|i64=i:5,m|i32=i:-3,m|u32=i:4,m|flag=b:1,m|dec=d:12.07,m|txt=t:abc,m|owned=t:xyz,m|raw=d:1.50"
+        );
+        assert_eq!(
+            row.metric("flag"),
+            Some(&MetricValueType::BoolItemType(true))
+        );
+        assert_eq!(row.metric("missing"), None);
+    }
+
+    #[test]
+    fn test_build_with_crc_stores_u16() {
+        setup();
+        let row = IoTextBuilder::new()
+            .timestamp(3900237526042)
+            .device_id("DEV_NAME_002")
+            .build(true)
+            .unwrap();
+        assert_eq!(row.crc16, Some(0xA4BA));
     }
 }

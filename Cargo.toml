@@ -1,35 +1,44 @@
 [package]
 name = "iotext_rs"
-version = "1.0.0"
-edition = "2021"
+version = "1.3.0"
+edition = "2024"
+rust-version = "1.85"
 authors = ["Marcin Bielak <marcin.bieli+IoTextrsgithub@gmail.com>"]
 description = "RUST implementation of IoText data protocol."
 repository = "https://github.com/bieli/IoText-rs"
 license = "Apache-2.0"
-keywords = ["IoT", "IoText", "data", "protocol"]
+readme = "README.md"
+keywords = ["IoT", "IoText", "data", "protocol", "no-std"]
+categories = ["parser-implementations", "encoding", "embedded", "no-std"]
+include = ["/src", "/examples", "/tests", "/benches", "/LICENSE", "/README.md", "/CHANGELOG.md"]
 
 [lib]
 name = "iotext_rs"
 path = "src/lib.rs"
 
-[[bin]]
-name = "iotext_rs_main"
-path = "src/main.rs"
+[features]
+default = ["std"]
+## Standard library support: `std::error::Error` impls via thiserror and
+## `IoTextBuilder::current_timestamp()`. Disable for `no_std` + `alloc` targets.
+std = ["thiserror/std", "rust_decimal/std", "serde?/std"]
+## `Serialize` / `Deserialize` for the data model (`Decimal` is serialized as a string).
+serde = ["dep:serde", "rust_decimal/serde"]
 
 [dependencies]
-rust_decimal = "1.36"
-rust_decimal_macros = "1.36.0"
-thiserror = "2"
-log = "0.4"
-env_logger = "0.11"
-serde = { version = "1.0", features = ["derive"] }
+log = { version = "0.4", default-features = false }
+rust_decimal = { version = "1.36", default-features = false }
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"], optional = true }
+thiserror = { version = "2", default-features = false }
 
 [dev-dependencies]
-pretty_assertions = "1.4.1"
-criterion = "0.5"
+criterion = "0.8"
+env_logger = "0.11"
 proptest = "1"
-#cargo-tarpaulin = "0.32.0"
-#rand = "0.8.4"
+serde_json = "1"
+
+[[example]]
+name = "basic_usage"
+required-features = ["std"]
 
 [[test]]
 name = "lib_proptest"
@@ -38,3 +47,17 @@ path = "tests/proptests/lib_proptest.rs"
 [[bench]]
 name = "my_benchmark"
 harness = false
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# Timestamps/CRCs are kept digit-for-digit identical to the wire format (`t|3900237526042`).
+unreadable_literal = "allow"

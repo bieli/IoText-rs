@@ -1,11 +1,13 @@
-//! Property-based tests for the IoText parser / serializer.
+//! Property-based tests for the `IoText` parser / serializer.
 //!
 //! Invariants checked here:
 //! 1. Parsing never panics, whatever the input.
 //! 2. Any valid row survives `to_string()` -> `parse()` unchanged (with and without CRC).
 //! 3. A CRC-protected message with any single byte changed is never accepted.
 
-use iotext_rs::{IoTextDataRow, IoTextError, Item, ItemTypeEnum, MetricDataItem, MetricValueType};
+use iotext_rs::{
+    IoTextDataRow, IoTextError, MetricDataItem, MetricKind, MetricValueType, crc16, crc16_with_poly,
+};
 use proptest::prelude::*;
 use proptest::test_runner::FileFailurePersistence;
 use rust_decimal::Decimal;
@@ -38,18 +40,10 @@ fn valid_row() -> impl Strategy<Value = IoTextDataRow> {
         identifier(),
         proptest::collection::vec(metric(), 0..12),
     )
-        .prop_map(|(ts, device_id, metrics)| IoTextDataRow {
-            timestamp: Item {
-                value: ItemTypeEnum::TimeUnixMilis(ts),
-            },
-            device_id: Item {
-                value: ItemTypeEnum::DeviceId(device_id),
-            },
-            metrics: if metrics.is_empty() {
-                None
-            } else {
-                Some(metrics)
-            },
+        .prop_map(|(timestamp, device_id, metrics)| IoTextDataRow {
+            timestamp,
+            device_id,
+            metrics,
             crc16: None,
         })
 }
@@ -146,5 +140,23 @@ proptest! {
         let msg = format!("{body},c|{bogus}");
         let is_mismatch = matches!(msg.parse::<IoTextDataRow>(), Err(IoTextError::CrcMismatch { .. }));
         prop_assert!(is_mismatch);
+    }
+
+    #[test]
+    fn table_crc_matches_bitwise_reference(data in proptest::collection::vec(any::<u8>(), 0..256)) {
+        prop_assert_eq!(crc16(&data), crc16_with_poly(&data, 0xA001));
+    }
+
+    #[test]
+    fn parsed_crc_field_matches_computed(row in valid_row()) {
+        let parsed: IoTextDataRow = row.to_iotext_string(true).parse().unwrap();
+        prop_assert_eq!(parsed.crc16, Some(row.compute_crc16()));
+    }
+
+    #[test]
+    fn metric_kind_matches_value(m in metric()) {
+        let msg = m.value.to_string();
+        let code = msg.split(':').next().unwrap();
+        prop_assert_eq!(MetricKind::from_code(code), Some(m.value.kind()));
     }
 }

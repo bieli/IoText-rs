@@ -3,6 +3,9 @@
 ![CI status](https://github.com/bieli/IoText-rs/actions/workflows/test.yaml/badge.svg)
 ![github_tag](https://img.shields.io/github/v/tag/bieli/IoText-rs)
 [![Crates.io](https://img.shields.io/crates/v/iotext_rs.svg)](https://crates.io/crates/iotext_rs)
+[![docs.rs](https://img.shields.io/docsrs/iotext_rs)](https://docs.rs/iotext_rs)
+![MSRV](https://img.shields.io/badge/MSRV-1.85-blue)
+![no_std](https://img.shields.io/badge/no__std-alloc-green)
 
 `IoText` is an IoT and IIoT text-based data protocol, simpler than JSON for time-series data from measurements.
 
@@ -11,7 +14,44 @@ This project was written in `RUST language` and it is an implementation of [IoTe
 IoText data protocol specification is here: https://github.com/bieli/IoText-data-protocol
 
 
+## Installation
+
+```toml
+[dependencies]
+iotext_rs = "1"
+```
+
+### Cargo features
+
+| Feature | Default | Description |
+|---|---|---|
+| `std` | yes | `std::error::Error` for all errors and `IoTextBuilder::current_timestamp()`. |
+| `serde` | no | `Serialize` / `Deserialize` for `IoTextDataRow`, `MetricDataItem`, `MetricValueType`, `MetricKind`, `ItemKind` (`Decimal` as a string). |
+
+### `no_std` (embedded)
+
+The crate is `#![no_std]` and only needs `alloc`. Disable default features:
+
+```toml
+[dependencies]
+iotext_rs = { version = "1", default-features = false }            # + features = ["serde"] if needed
+```
+
+Without `std`, set timestamps explicitly with `IoTextBuilder::timestamp()` (for example from an RTC).
+The build is verified for `thumbv6m-none-eabi` (Cortex-M0) and `x86_64-unknown-none`.
+
+### Minimum supported Rust version
+
+The MSRV is **1.85** (edition 2024). Raising it is treated as a minor (not patch) release.
+
 ## Development details
+
+```bash
+cargo test --all-features                       # unit, property, serde and doc tests
+cargo run --example basic_usage                 # the example below
+make check-nostd                                # no_std check (thumbv6m-none-eabi)
+cargo bench
+```
 
 
 ### Example library code usage (parsing String with IoText row and preparing String from IoText MSG_EXAMPLE row)
@@ -45,7 +85,7 @@ fn main() -> Result<(), IoTextError> {
 use iotext_rs::{IoTextDataRow, IoTextError};
 
 match "t|1,d|dev,c|0000".parse::<IoTextDataRow>() {
-    Err(IoTextError::CrcMismatch { received, computed }) => eprintln!("bad CRC {received} != {computed}"),
+    Err(IoTextError::CrcMismatch { received, computed }) => eprintln!("bad CRC {received:04X} != {computed:04X}"),
     Err(other) => eprintln!("invalid message: {other}"),
     Ok(row) => println!("{row}"),
 }
@@ -65,7 +105,30 @@ match "t|1,d|dev,c|0000".parse::<IoTextDataRow>() {
 | CRC of message without metrics covered a trailing `,` | CRC covers exactly the bytes before `,c\|` |
 | separators allowed in device id / metric name | `, : \| =` rejected; `,` rejected in TEXT values |
 
-The old `IoTextData` trait is still available (deprecated) and now returns `Result`.
+### Migrating from 1.0.0 to 1.3.0
+
+> **Note:** 1.3.0 changes the public data model, so code written against 1.0.0 needs the
+> updates below (the compiler points at every place). See [CHANGELOG.md](CHANGELOG.md).
+
+| 1.0.0 | 1.3.0 |
+|---|---|
+| `row.timestamp.value == ItemTypeEnum::TimeUnixMilis(ts)` | `row.timestamp == ts` (`u64`) |
+| `row.device_id.value == ItemTypeEnum::DeviceId(id)` | `row.device_id == id` (`String`) |
+| `row.metrics: Option<Vec<MetricDataItem>>` | `row.metrics: Vec<MetricDataItem>` (empty = no metrics) |
+| `row.crc16: Option<Item>` (`Crc(String)`) | `row.crc16: Option<u16>` |
+| `get_timestamp()` / `timestamp_mut()` / ... getters | public fields; `row.metric("name")` lookup |
+| `Item`, `ItemTypeEnum` | removed |
+| `MetricDataTypes::INTEGER`, `ItemTypes::CRC` | `MetricKind::Integer`, `ItemKind::Crc` (`.code()` gives `"i"`, `"c"`) |
+| `Tools::crc16(s, CRC16_POLY_DEFAULT)` → `String` | `crc16(s.as_bytes())` → `u16` (`const fn`, table-driven); `crc16_to_hex()` |
+| `.add_metric("t", MetricValueType::DecimalItemType(d))` | `.add_metric("t", d)` - accepts `i64`, `i32`, `u32`, `bool`, `Decimal`, `&str`, `String` |
+| `.add_metric_as_str("t", "1.5", "d")` | still works; also `.add_metric_of_kind("t", MetricKind::Decimal, "1.5")` |
+| `IoTextError::CrcMismatch { received: String, .. }` | `received` / `computed` are `u16` |
+| `iotext_rs_main` binary | `cargo run --example basic_usage` |
+| `rust_decimal_macros`, `chrono`, `env_logger`, `serde` pulled in always | only `log`, `rust_decimal`, `thiserror`; `serde` is an opt-in feature |
+| edition 2021, no MSRV | edition 2024, MSRV 1.85, `no_std` + `alloc` with `default-features = false` |
+
+The old `IoTextData` trait, `Tools::crc16`, `MetricDataTypes` and `ItemTypes` are still available (deprecated).
+`MetricValueType`, `MetricKind`, `ItemKind` and all error enums are `#[non_exhaustive]`, so new protocol types can be added in minor releases.
 
 ### Example library code usage without CRC (BUILDER pattern usage with IoTextBuilder)
 
@@ -82,31 +145,25 @@ The old `IoTextData` trait is still available (deprecated) and now returns `Resu
         .add_metric_as_str("val_water_001", "1234", "i")
         .add_metric_as_str("val_water_002", "15", "i")
         .add_metric_as_str("bulb_state", "1", "b")
-        .add_metric("connector_state", MetricValueType::BoolItemType(false))
+        .add_metric("connector_state", false)
         .add_metric(
             "temp_01",
-            MetricValueType::DecimalItemType(
-                Decimal::from_f64(34.4).expect("Could not convert value to decimal!"),
-            ),
+            Decimal::new(344, 1),
         )
         .add_metric(
             "temp_02",
-            MetricValueType::DecimalItemType(
-                Decimal::from_f64(36.4).expect("Could not convert value to decimal!"),
-            ),
+            Decimal::new(364, 1),
         )
         .add_metric_as_str("temp_03", "10.4", "d")
         .add_metric_as_str("pwr", "12.231", "d")
         .add_metric_as_str("current", "1.429", "d")
         .add_metric(
             "current_battery",
-            MetricValueType::DecimalItemType(
-                Decimal::from_f64(1.548).expect("Could not convert value to decimal!"),
-            ),
+            Decimal::new(1548, 3),
         )
         .add_metric(
             "status_txt",
-            MetricValueType::TextItemType("in_progress".to_string()),
+            "in_progress",
         )
         .build(false)?;
 
@@ -129,31 +186,25 @@ The old `IoTextData` trait is still available (deprecated) and now returns `Resu
         .add_metric_as_str("val_water_001", "1234", "i")
         .add_metric_as_str("val_water_002", "15", "i")
         .add_metric_as_str("bulb_state", "1", "b")
-        .add_metric("connector_state", MetricValueType::BoolItemType(false))
+        .add_metric("connector_state", false)
         .add_metric(
             "temp_01",
-            MetricValueType::DecimalItemType(
-                Decimal::from_f64(34.4).expect("Could not convert value to decimal!"),
-            ),
+            Decimal::new(344, 1),
         )
         .add_metric(
             "temp_02",
-            MetricValueType::DecimalItemType(
-                Decimal::from_f64(36.4).expect("Could not convert value to decimal!"),
-            ),
+            Decimal::new(364, 1),
         )
         .add_metric_as_str("temp_03", "10.4", "d")
         .add_metric_as_str("pwr", "12.231", "d")
         .add_metric_as_str("current", "1.429", "d")
         .add_metric(
             "current_battery",
-            MetricValueType::DecimalItemType(
-                Decimal::from_f64(1.548).expect("Could not convert value to decimal!"),
-            ),
+            Decimal::new(1548, 3),
         )
         .add_metric(
             "status_txt",
-            MetricValueType::TextItemType("in_progress".to_string()),
+            "in_progress",
         )
         .build(true)?;
 
@@ -193,97 +244,82 @@ t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|
 
 ### Parsing results (data from below example IoText data row)
 ```bash
-$ cargo b
-$ cargo r
+$ cargo run --example basic_usage
     Finished dev [unoptimized + debuginfo] target(s) in 0.02s
-     Running `target/debug/iotext-rs`
+     Running `target/debug/examples/basic_usage`
 iotext_data_row: IoTextDataRow {
-    timestamp: Item {
-        value: TimeUnixMilis(
-            3900237526042,
-        ),
-    },
-    device_id: Item {
-        value: DeviceId(
-            "device_name_001",
-        ),
-    },
-    metrics: Some(
-        [
-            MetricDataItem {
-                name: "val_water_001",
-                value: IntegerItemType(
-                    1234,
-                ),
-            },
-            MetricDataItem {
-                name: "val_water_002",
-                value: IntegerItemType(
-                    15,
-                ),
-            },
-            MetricDataItem {
-                name: "bulb_state",
-                value: BoolItemType(
-                    true,
-                ),
-            },
-            MetricDataItem {
-                name: "connector_state",
-                value: BoolItemType(
-                    false,
-                ),
-            },
-            MetricDataItem {
-                name: "temp_01",
-                value: DecimalItemType(
-                    34.4,
-                ),
-            },
-            MetricDataItem {
-                name: "temp_02",
-                value: DecimalItemType(
-                    36.4,
-                ),
-            },
-            MetricDataItem {
-                name: "temp_03",
-                value: DecimalItemType(
-                    10.4,
-                ),
-            },
-            MetricDataItem {
-                name: "pwr",
-                value: DecimalItemType(
-                    12.231,
-                ),
-            },
-            MetricDataItem {
-                name: "current",
-                value: DecimalItemType(
-                    1.429,
-                ),
-            },
-            MetricDataItem {
-                name: "current_battery",
-                value: DecimalItemType(
-                    1.548,
-                ),
-            },
-            MetricDataItem {
-                name: "status_txt",
-                value: TextItemType(
-                    "in_progress",
-                ),
-            },
-        ],
-    ),
-    crc16: Some(
-        Item {
-            value: Crc(
-                "ECF6",
+    timestamp: 3900237526042,
+    device_id: "device_name_001",
+    metrics: [
+        MetricDataItem {
+            name: "val_water_001",
+            value: IntegerItemType(
+                1234,
             ),
         },
+        MetricDataItem {
+            name: "val_water_002",
+            value: IntegerItemType(
+                15,
+            ),
+        },
+        MetricDataItem {
+            name: "bulb_state",
+            value: BoolItemType(
+                true,
+            ),
+        },
+        MetricDataItem {
+            name: "connector_state",
+            value: BoolItemType(
+                false,
+            ),
+        },
+        MetricDataItem {
+            name: "temp_01",
+            value: DecimalItemType(
+                34.4,
+            ),
+        },
+        MetricDataItem {
+            name: "temp_02",
+            value: DecimalItemType(
+                36.4,
+            ),
+        },
+        MetricDataItem {
+            name: "temp_03",
+            value: DecimalItemType(
+                10.4,
+            ),
+        },
+        MetricDataItem {
+            name: "pwr",
+            value: DecimalItemType(
+                12.231,
+            ),
+        },
+        MetricDataItem {
+            name: "current",
+            value: DecimalItemType(
+                1.429,
+            ),
+        },
+        MetricDataItem {
+            name: "current_battery",
+            value: DecimalItemType(
+                1.548,
+            ),
+        },
+        MetricDataItem {
+            name: "status_txt",
+            value: TextItemType(
+                "in_progress",
+            ),
+        },
+    ],
+    crc16: Some(
+        60662,
     ),
 }
 str_from_iotext_data: t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|bulb_state=b:1,m|connector_state=b:0,m|temp_01=d:34.4,m|temp_02=d:36.4,m|temp_03=d:10.4,m|pwr=d:12.231,m|current=d:1.429,m|current_battery=d:1.548,m|status_txt=t:in_progress,c|ECF6
