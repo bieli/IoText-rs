@@ -1,6 +1,6 @@
 [package]
 name = "iotext_rs"
-version = "1.0.0"
+version = "1.2.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Marcin Bielak <marcin.bieli+IoTextrsgithub@gmail.com>"]
@@ -10,7 +10,7 @@ license = "Apache-2.0"
 readme = "README.md"
 keywords = ["IoT", "IoText", "data", "protocol", "no-std"]
 categories = ["parser-implementations", "encoding", "embedded", "no-std"]
-include = ["/src", "/examples", "/tests", "/benches", "/LICENSE", "/README.md"]
+include = ["/src", "/examples", "/tests", "/benches", "/LICENSE", "/README.md", "/CHANGELOG.md"]
 
 [lib]
 name = "iotext_rs"

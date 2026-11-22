@@ -90,7 +90,7 @@ pub struct Tools;
 impl Tools {
     /// CRC-16 over the UTF-8 bytes of `data`, as four upper-case hex digits.
     #[deprecated(
-        since = "1.0.0",
+        since = "1.2.0",
         note = "use `iotext_rs::crc16(data.as_bytes())` (returns `u16`)"
     )]
     #[must_use]
