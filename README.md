@@ -104,6 +104,14 @@ match "t|1,d|dev,c|0000".parse::<IoTextDataRow>() {
 | CRC item parsed but not verified | CRC verified; must be the last item |
 | CRC of message without metrics covered a trailing `,` | CRC covers exactly the bytes before `,c\|` |
 | separators allowed in device id / metric name | `, : \| =` rejected; `,` rejected in TEXT values |
+
+### Migrating from 1.0.0 to 1.3.0
+
+> **Note:** 1.3.0 changes the public data model, so code written against 1.0.0 needs the
+> updates below (the compiler points at every place). See [CHANGELOG.md](CHANGELOG.md).
+
+| 1.0.0 | 1.3.0 |
+|---|---|
 | `row.timestamp.value == ItemTypeEnum::TimeUnixMilis(ts)` | `row.timestamp == ts` (`u64`) |
 | `row.device_id.value == ItemTypeEnum::DeviceId(id)` | `row.device_id == id` (`String`) |
 | `row.metrics: Option<Vec<MetricDataItem>>` | `row.metrics: Vec<MetricDataItem>` (empty = no metrics) |
@@ -239,8 +247,15 @@ bitwise reference; it made parsing ~15% faster than the previous lookup-table ve
 Measured with criterion 0.8 on an Intel Core i7-8850H @ 2.60GHz (Linux 5.15, Rust 1.100,
 load average ~4.5, so treat the numbers as indicative).
 
-> Benchmark numbers published for versions before 1.0.0 were measured on malformed fixtures
-> (only the first 10 metrics were valid), so they are not comparable.
+### Historical results (0.5.x)
+
+Parsing time of the 0.5.x parser ([`assets/benches.csv`](assets/benches.csv)):
+
+![Benches](assets/bieli__IoText-rs-__IoT_data-protocol-benchmark_01.png?raw=true "Benches")
+
+> In those fixtures one metric per 10 was malformed (`...=d:1.548|val_water_002=...` instead of
+> `...=d:1.548,m|val_water_002=...`); the 0.5.x parser silently merged it, the current parser
+> rejects it. The current benchmarks use builder-generated, validated messages with a CRC.
 
 ### Input example IoText data row
 ```bash

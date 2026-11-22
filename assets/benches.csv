@@ -1,0 +1,8 @@
+IoText message size (bytes) ,IoText msg. metrics count  ,avg. parsing time (µs)
+206,10,2.5
+432,20,4.5
+638,30,6.5
+844,40,8.5
+1050,50,10.5
+2080,100,20.5
+4160,200,41.5

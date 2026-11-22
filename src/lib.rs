@@ -168,7 +168,7 @@ impl fmt::Display for ItemKind {
 
 /// Pre-1.0 metric data type codes.
 #[deprecated(
-    since = "1.0.0",
+    since = "1.3.0",
     note = "use `MetricKind` (e.g. `MetricKind::Integer.code()`)"
 )]
 #[derive(Debug, Default)]
@@ -188,7 +188,7 @@ impl MetricDataTypes {
 
 /// Pre-1.0 item type codes.
 #[deprecated(
-    since = "1.0.0",
+    since = "1.3.0",
     note = "use `ItemKind` (e.g. `ItemKind::Timestamp.code()`)"
 )]
 #[derive(Debug, Default)]
