@@ -97,7 +97,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@1.85
+      # Pin via the `toolchain` input: Dependabot reads `@1.85` as an action version and "upgrades" it.
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.85"
       - uses: Swatinem/rust-cache@v2
       # MSRV covers the library; dev-dependencies (criterion) may need a newer compiler.
       - run: cargo check --lib --all-features
@@ -187,5 +190,5 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
-          # Forks have no access to the token; do not fail their PRs.
-          fail_ci_if_error: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+          # Fork and Dependabot PRs get no Actions secrets; only fail when the token is available.
+          fail_ci_if_error: ${{ secrets.CODECOV_TOKEN != '' }}
