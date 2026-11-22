@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use iotext_rs::IoTextData;
 use iotext_rs::IoTextDataRow;
+use std::hint::black_box;
 /*
 use rand::Rng;
 
@@ -27,7 +27,6 @@ pub fn gen_next_10_metrics() -> String {
 */
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let data_obj: IoTextDataRow = IoTextDataRow::default();
     const MSG_EXAMPLE_10_METRICS_FIRST: &str = "t|3900237526042,d|device_name_001,m|val_water_001=i:1234,m|val_water_002=i:15,m|bulb_state=b:1,m|connector_state=b:0,m|temp_01=d:34.4,m|temp_02=d:36.4,m|temp_03=d:10.4,m|pwr=d:12.231,m|current=d:1.429,m|current_battery=d:1.548";
 
     const MSG_EXAMPLE_10_METRICS_2: &str = "|val_water_002=i:12345678,m|val_water_0022=i:15,m|bulb_state2=b:1,m|connector_state2=b:0,m|temp_02=d:341.14,m|temp_022=d:316.4,m|temp_032=d:20.4,m|pwr2=d:32.231,m|current2=d:4.429,m|current_battery2=d:1.548";
@@ -52,31 +51,31 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let msg_example_200_metrics: String = format!("{MSG_EXAMPLE_10_METRICS_FIRST}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_2}{MSG_EXAMPLE_10_METRICS_3}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}{MSG_EXAMPLE_10_METRICS_4}");
 
     c.bench_function("parse_iotext_str - 10 metrics", |b| {
-        b.iter(|| data_obj.parse_iotext_str(&MSG_EXAMPLE_10_METRICS_FIRST))
+        b.iter(|| black_box(MSG_EXAMPLE_10_METRICS_FIRST).parse::<IoTextDataRow>())
     });
 
     c.bench_function("parse_iotext_str - 20 metrics", |b| {
-        b.iter(|| data_obj.parse_iotext_str(&msg_example_20_metrics))
+        b.iter(|| black_box(msg_example_20_metrics.as_str()).parse::<IoTextDataRow>())
     });
 
     c.bench_function("parse_iotext_str - 30 metrics", |b| {
-        b.iter(|| data_obj.parse_iotext_str(&msg_example_30_metrics))
+        b.iter(|| black_box(msg_example_30_metrics.as_str()).parse::<IoTextDataRow>())
     });
 
     c.bench_function("parse_iotext_str - 40 metrics", |b| {
-        b.iter(|| data_obj.parse_iotext_str(&msg_example_40_metrics))
+        b.iter(|| black_box(msg_example_40_metrics.as_str()).parse::<IoTextDataRow>())
     });
 
     c.bench_function("parse_iotext_str - 50 metrics", |b| {
-        b.iter(|| data_obj.parse_iotext_str(&msg_example_50_metrics))
+        b.iter(|| black_box(msg_example_50_metrics.as_str()).parse::<IoTextDataRow>())
     });
 
     c.bench_function("parse_iotext_str - 100 metrics", |b| {
-        b.iter(|| data_obj.parse_iotext_str(&msg_example_100_metrics))
+        b.iter(|| black_box(msg_example_100_metrics.as_str()).parse::<IoTextDataRow>())
     });
 
     c.bench_function("parse_iotext_str - 200 metrics", |b| {
-        b.iter(|| data_obj.parse_iotext_str(&msg_example_200_metrics))
+        b.iter(|| black_box(msg_example_200_metrics.as_str()).parse::<IoTextDataRow>())
     });
 }
 

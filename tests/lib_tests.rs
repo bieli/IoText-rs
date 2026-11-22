@@ -1,181 +1,264 @@
 use rust_decimal::prelude::*;
 
-use iotext_rs::IoTextData;
-use iotext_rs::IoTextDataRow;
-use iotext_rs::ItemTypeEnum;
-use iotext_rs::MetricValueType;
+use iotext_rs::validators::{DeviceIdError, MetricDataTypeError, MetricNameError};
+use iotext_rs::{IoTextDataRow, IoTextError, Item, ItemTypeEnum, MetricValueType};
 
 #[cfg(test)]
 mod lib_tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
+
+    fn row(ts: u64, device_id: &str) -> IoTextDataRow {
+        IoTextDataRow {
+            timestamp: Item {
+                value: ItemTypeEnum::TimeUnixMilis(ts),
+            },
+            device_id: Item {
+                value: ItemTypeEnum::DeviceId(device_id.to_string()),
+            },
+            ..Default::default()
+        }
+    }
+
+    fn parse_err(msg: &str) -> IoTextError {
+        msg.parse::<IoTextDataRow>()
+            .expect_err(&format!("expected error for {msg:?}"))
+    }
+
+    // ---------- metric values ----------
 
     #[test]
     fn test_extract_metric_value_type_integer() {
-        let data_obj = IoTextDataRow::default();
-        const METRIC_DATA_TYPE: &str = "i";
-        const METRIC_DATA_VALUE: &str = "42";
-
-        let result = data_obj.extract_metric_value_type(METRIC_DATA_TYPE, METRIC_DATA_VALUE);
-
-        assert_eq!(result, MetricValueType::IntegerItemType(42));
+        let result = MetricValueType::from_type_and_value("i", "42");
+        assert_eq!(result, Ok(MetricValueType::IntegerItemType(42)));
     }
 
     #[test]
     fn test_extract_metric_value_type_decimal() {
-        let data_obj = IoTextDataRow::default();
-        const METRIC_DATA_TYPE: &str = "d";
-        const METRIC_DATA_VALUE: &str = "42.123";
-
-        let result = data_obj.extract_metric_value_type(METRIC_DATA_TYPE, METRIC_DATA_VALUE);
-
+        let result = MetricValueType::from_type_and_value("d", "42.123");
         assert_eq!(
             result,
-            MetricValueType::DecimalItemType(Decimal::from_str(METRIC_DATA_VALUE).unwrap())
+            Ok(MetricValueType::DecimalItemType(
+                Decimal::from_str("42.123").unwrap()
+            ))
         );
     }
 
     #[test]
     fn test_extract_metric_value_type_bool_true() {
-        let data_obj = IoTextDataRow::default();
-        const METRIC_DATA_TYPE: &str = "b";
-        const METRIC_DATA_VALUE: &str = "1";
-
-        let result = data_obj.extract_metric_value_type(METRIC_DATA_TYPE, METRIC_DATA_VALUE);
-
-        assert_eq!(result, MetricValueType::BoolItemType(true));
+        let result = MetricValueType::try_from(("b", "1"));
+        assert_eq!(result, Ok(MetricValueType::BoolItemType(true)));
     }
 
     #[test]
     fn test_extract_metric_value_type_bool_false() {
-        let data_obj = IoTextDataRow::default();
-        const METRIC_DATA_TYPE: &str = "b";
-        const METRIC_DATA_VALUE: &str = "0";
-
-        let result = data_obj.extract_metric_value_type(METRIC_DATA_TYPE, METRIC_DATA_VALUE);
-
-        assert_eq!(result, MetricValueType::BoolItemType(false));
+        let result = MetricValueType::try_from(("b", "0"));
+        assert_eq!(result, Ok(MetricValueType::BoolItemType(false)));
     }
 
     #[test]
     fn test_extract_metric_value_type_text() {
-        let data_obj = IoTextDataRow::default();
-        const METRIC_DATA_TYPE: &str = "t";
-        const METRIC_DATA_VALUE: &str = "hello";
-
-        let result = data_obj.extract_metric_value_type(METRIC_DATA_TYPE, METRIC_DATA_VALUE);
-
+        let result = MetricValueType::from_type_and_value("t", "hello");
         assert_eq!(
             result,
-            MetricValueType::TextItemType(METRIC_DATA_VALUE.to_string())
+            Ok(MetricValueType::TextItemType("hello".to_string()))
         );
     }
 
     #[test]
+    fn test_extract_metric_value_type_invalid_values() {
+        assert_eq!(
+            MetricValueType::from_type_and_value("i", "4.2"),
+            Err(IoTextError::InvalidInteger("4.2".into()))
+        );
+        assert_eq!(
+            MetricValueType::from_type_and_value("b", "true"),
+            Err(IoTextError::InvalidBool("true".into()))
+        );
+        assert_eq!(
+            MetricValueType::from_type_and_value("d", "abc"),
+            Err(IoTextError::InvalidDecimal("abc".into()))
+        );
+        assert!(matches!(
+            MetricValueType::from_type_and_value("x", "1"),
+            Err(IoTextError::MetricDataType(
+                MetricDataTypeError::UnknownMetricDataType(..)
+            ))
+        ));
+    }
+
+    // ---------- dump ----------
+
+    #[test]
     fn test_dump_iotext_to_str_without_measurements_without_crc16() {
-        let data_obj = IoTextDataRow::default();
-        let expected: String = "t|3900237526042,d|device_name_001".to_string();
-        let mut iotext_data_row = IoTextDataRow::default();
-
-        let s = iotext_data_row.timestamp_mut();
-        s.value = ItemTypeEnum::TimeUnixMilis(3900237526042);
-
-        let s = iotext_data_row.device_id_mut();
-        s.value = ItemTypeEnum::DeviceId("device_name_001".to_string());
-
-        let result: String = data_obj.dump_iotext_to_str(&iotext_data_row, false);
-
-        assert_eq!(result, expected);
+        let result = row(3900237526042, "device_name_001").to_iotext_string(false);
+        assert_eq!(result, "t|3900237526042,d|device_name_001");
     }
 
     #[test]
     fn test_dump_iotext_to_str_with_measurements_without_crc16() {
-        let data_obj = IoTextDataRow::default();
-        let expected: String = "t|3900237526044,d|device_name_002,m|val1i=i:123,m|val2d=d:123.45,m|valb1=b:1,m|valb0=b:0,m|valt=t:abc".to_string();
-        let iotext_data_row = data_obj.parse_iotext_str(&expected);
+        let expected = "t|3900237526044,d|device_name_002,m|val1i=i:123,m|val2d=d:123.45,m|valb1=b:1,m|valb0=b:0,m|valt=t:abc";
+        let iotext_data_row: IoTextDataRow = expected.parse().unwrap();
 
-        let result: String = data_obj.dump_iotext_to_str(&iotext_data_row, false);
-
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn test_parse_iotext_str_for_timestamp_without_measurements() {
-        let expected_timestamp: u64 = 3900237526044;
-        let data_obj = IoTextDataRow::default();
-        let iot_ext_proto_test_msg: String = "t|3900237526044,d|device_name_004".to_string();
-        let result = data_obj.parse_iotext_str(&iot_ext_proto_test_msg);
-
-        let result_timestamp: u64 = match result.get_timestamp() {
-            ItemTypeEnum::TimeUnixMilis(value) => value.to_owned(),
-            _ => todo!(),
-        };
-
-        assert_eq!(result_timestamp, expected_timestamp);
-    }
-
-    #[test]
-    fn test_parse_iotext_str_for_device_id_without_measurements() {
-        let expected_device_id: String = "device_name_005".to_string();
-        let data_obj = IoTextDataRow::default();
-        let iot_ext_proto_test_msg: String = "t|3900237526045,d|device_name_005".to_string();
-        let result = data_obj.parse_iotext_str(&iot_ext_proto_test_msg);
-
-        let result_device_id: String = match result.get_device_id() {
-            ItemTypeEnum::DeviceId(value) => value.to_owned(),
-            _ => todo!(),
-        };
-
-        assert_eq!(result_device_id, expected_device_id);
-    }
-
-    #[test]
-    fn test_parse_iotext_str_for_device_id_without_measurements_with_crc16() {
-        let expected_crc16: String = "c|E4D5".to_string();
-        let data_obj = IoTextDataRow::default();
-        let iot_ext_proto_test_msg: String = "t|3900237526045,d|device_name_005,c|E4D5".to_string();
-        let result = data_obj.parse_iotext_str(&iot_ext_proto_test_msg);
-
-        let optional_crc16 = result.get_crc16();
-        let result_crc16: String = optional_crc16.as_ref().unwrap().to_string();
-        // let val1 = optional_crc16.as_ref().unwrap();
-        // let result_crc16: String = match val1 {
-        //     value => value.value.to_string(),
-        // };
-
-        assert_eq!(result_crc16, expected_crc16);
+        assert_eq!(iotext_data_row.to_iotext_string(false), expected);
+        assert_eq!(iotext_data_row.to_string(), expected);
     }
 
     #[test]
     fn test_dump_iotext_to_str_without_measurements_with_crc16() {
-        let data_obj = IoTextDataRow::default();
-        let expected: String = "t|3900237526042,d|DEV_NAME_002,c|6E24".to_string();
-        let mut iotext_data_row = IoTextDataRow::default();
-
-        let s = iotext_data_row.timestamp_mut();
-        s.value = ItemTypeEnum::TimeUnixMilis(3900237526042);
-
-        let s = iotext_data_row.device_id_mut();
-        s.value = ItemTypeEnum::DeviceId("DEV_NAME_002".to_string());
-
-        // let crc16_mut_opt = iotext_data_row.crc16_mut();
-        //&crc16_mut_opt.unwrap().value = ItemTypeEnum::Crc("07A3".to_string());
-        //crc16_mut_opt.unwrap().value = ItemTypeEnum::Crc("07A3".to_string());
-
-        let result: String = data_obj.dump_iotext_to_str(&iotext_data_row, true);
-
-        assert_eq!(result, expected);
+        // CRC is computed over exactly the bytes before ",c|" (0.5.x wrongly included a trailing ',').
+        let result = row(3900237526042, "DEV_NAME_002").to_iotext_string(true);
+        assert_eq!(result, "t|3900237526042,d|DEV_NAME_002,c|A4BA");
     }
 
     #[test]
     fn test_dump_iotext_to_str_with_measurements_with_crc16() {
+        let expected = "t|3900237526042,d|DEV_NAME_002,m|example_metric_name=d:12.07,c|3E3C";
+        let iotext_data_row: IoTextDataRow = expected.parse().unwrap();
+
+        assert_eq!(iotext_data_row.to_iotext_string(true), expected);
+        assert_eq!(iotext_data_row.to_string(), expected);
+    }
+
+    // ---------- parse ----------
+
+    #[test]
+    fn test_parse_iotext_str_for_timestamp_without_measurements() {
+        let result: IoTextDataRow = "t|3900237526044,d|device_name_004".parse().unwrap();
+        assert_eq!(
+            result.get_timestamp(),
+            &ItemTypeEnum::TimeUnixMilis(3900237526044)
+        );
+    }
+
+    #[test]
+    fn test_parse_iotext_str_for_device_id_without_measurements() {
+        let result: IoTextDataRow = "t|3900237526045,d|device_name_005".parse().unwrap();
+        assert_eq!(
+            result.get_device_id(),
+            &ItemTypeEnum::DeviceId("device_name_005".to_string())
+        );
+        assert_eq!(result.get_metrics(), &None);
+    }
+
+    #[test]
+    fn test_parse_iotext_str_for_device_id_without_measurements_with_crc16() {
+        let result: IoTextDataRow = "t|3900237526045,d|device_name_005,c|6F89".parse().unwrap();
+        assert_eq!(result.get_crc16().as_ref().unwrap().to_string(), "c|6F89");
+    }
+
+    #[test]
+    fn test_parse_accepts_lowercase_crc() {
+        assert!("t|3900237526045,d|device_name_005,c|6f89"
+            .parse::<IoTextDataRow>()
+            .is_ok());
+    }
+
+    #[test]
+    fn test_parse_metric_order_and_text_with_inner_separators() {
+        let result: IoTextDataRow = "d|dev,m|a=t:x|y=z:w,t|1".parse().unwrap();
+        assert_eq!(result.to_string(), "t|1,d|dev,m|a=t:x|y=z:w");
+    }
+
+    // ---------- parse errors (each of these panicked in 0.5.x or was silently accepted) ----------
+
+    #[test]
+    fn test_parse_error_metric_without_value() {
+        assert_eq!(
+            parse_err("t|1,d|x,m|a"),
+            IoTextError::MalformedMetric("m|a".into())
+        );
+        assert_eq!(
+            parse_err("t|1,d|x,m|a=i"),
+            IoTextError::MalformedMetric("m|a=i".into())
+        );
+    }
+
+    #[test]
+    fn test_parse_error_invalid_decimal() {
+        assert_eq!(
+            parse_err("t|1,d|x,m|a=d:abc"),
+            IoTextError::InvalidDecimal("abc".into())
+        );
+    }
+
+    #[test]
+    fn test_parse_error_comma_in_text_is_not_truncated_silently() {
+        assert_eq!(
+            parse_err("t|1,d|x,m|a=t:hello,world"),
+            IoTextError::MalformedItem("world".into())
+        );
+    }
+
+    #[test]
+    fn test_parse_error_crc_mismatch() {
+        assert_eq!(
+            parse_err("t|1,d|x,c|0000"),
+            IoTextError::CrcMismatch {
+                received: "0000".into(),
+                computed: iotext_rs::Tools::crc16("t|1,d|x", iotext_rs::CRC16_POLY_DEFAULT),
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_error_crc_not_last() {
+        let crc = iotext_rs::Tools::crc16("t|1,d|x", iotext_rs::CRC16_POLY_DEFAULT);
+        assert_eq!(
+            parse_err(&format!("t|1,d|x,c|{crc},m|a=i:1")),
+            IoTextError::CrcNotLast
+        );
+    }
+
+    #[test]
+    fn test_parse_error_structure() {
+        assert_eq!(parse_err(""), IoTextError::EmptyMessage);
+        assert_eq!(parse_err("t|1,d|x,"), IoTextError::MalformedItem("".into()));
+        assert_eq!(
+            parse_err("garbage"),
+            IoTextError::MalformedItem("garbage".into())
+        );
+        assert_eq!(
+            parse_err("t|1,d|x,h|1"),
+            IoTextError::UnknownItemType("h".into())
+        );
+        assert_eq!(parse_err("d|x"), IoTextError::MissingTimestamp);
+        assert_eq!(parse_err("t|1"), IoTextError::MissingDeviceId);
+        assert_eq!(
+            parse_err("t|1,t|2,d|x"),
+            IoTextError::DuplicatedItem("t|2".into())
+        );
+        assert_eq!(
+            parse_err("t|1,d|x,d|y"),
+            IoTextError::DuplicatedItem("d|y".into())
+        );
+    }
+
+    #[test]
+    fn test_parse_error_from_validators() {
+        assert!(matches!(parse_err("t|abc,d|x"), IoTextError::Timestamp(_)));
+        assert!(matches!(
+            parse_err("t|1,d|a|b"),
+            IoTextError::DeviceId(DeviceIdError::DeviceIdContainsSpecialChar(_))
+        ));
+        assert!(matches!(
+            parse_err("t|1,d|x,m|=i:1"),
+            IoTextError::MetricName(MetricNameError::MetricNameIsEmpty(_))
+        ));
+        assert!(matches!(parse_err("t|1,d|x,c|XYZ1"), IoTextError::Crc(_)));
+    }
+
+    // ---------- deprecated trait still works ----------
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_deprecated_trait_api_returns_result() {
+        use iotext_rs::IoTextData;
         let data_obj = IoTextDataRow::default();
-        let expected: String =
-            "t|3900237526042,d|DEV_NAME_002,m|example_metric_name=d:12.07,c|3E3C".to_string();
-        let iotext_data_row = data_obj.parse_iotext_str(&expected);
-
-        let result: String = data_obj.dump_iotext_to_str(&iotext_data_row, true);
-
-        assert_eq!(result, expected);
+        let parsed = data_obj.parse_iotext_str("t|1,d|x,m|a=i:5").unwrap();
+        assert_eq!(
+            data_obj.dump_iotext_to_str(&parsed, false),
+            "t|1,d|x,m|a=i:5"
+        );
+        assert!(data_obj.parse_iotext_str("t|1,d|x,m|a").is_err());
     }
 }

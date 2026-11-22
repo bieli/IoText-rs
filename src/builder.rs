@@ -1,186 +1,155 @@
-use crate::{
-    validators, IoTextData, IoTextDataRow, Item, ItemTypeEnum, ItemTypes, MetricDataItem,
-    MetricValueType, SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP,
-};
-use chrono::Utc;
-use log::{debug, error, trace};
-use thiserror::Error;
+use crate::validators::Validators;
+use crate::{IoTextDataRow, IoTextError, Item, ItemTypeEnum, MetricDataItem, MetricValueType};
+use log::trace;
+use std::time::{SystemTime, UNIX_EPOCH};
 
-#[derive(Error, Debug)]
-pub enum IoTextBuilderError {
-    #[error("Timestamp is empty: {0} (expected u64 non-zero value)")]
-    TimestampIsEmpty(Item),
+/// Kept for source compatibility; the builder now reports [`IoTextError`].
+#[deprecated(since = "1.0.0", note = "use `iotext_rs::IoTextError`")]
+pub type IoTextBuilderError = IoTextError;
 
-    #[error("DeviceId is empty: {0} (expected minimum one ASCII character)")]
-    DeviceIdIsEmpty(String),
-}
-
+/// Builds an [`IoTextDataRow`]. Setter methods never panic: the first validation
+/// error is remembered and returned by [`IoTextBuilder::build`].
+///
+/// ```
+/// use iotext_rs::{builder::IoTextBuilder, MetricValueType};
+///
+/// let row = IoTextBuilder::new()
+///     .timestamp(3900237526042)
+///     .device_id("DEV_NAME_002")
+///     .add_metric("count", MetricValueType::IntegerItemType(7))
+///     .add_metric_as_str("temp", "12.07", "d")
+///     .build(true)?;
+/// assert_eq!(row.to_string(), "t|3900237526042,d|DEV_NAME_002,m|count=i:7,m|temp=d:12.07,c|CC8C");
+///
+/// assert!(IoTextBuilder::new().timestamp(1).device_id("bad,id").build(false).is_err());
+/// # Ok::<(), iotext_rs::IoTextError>(())
+/// ```
 #[derive(Debug, Default)]
 pub struct IoTextBuilder {
-    iotext_data_row: IoTextDataRow,
+    timestamp: Option<u64>,
+    device_id: Option<String>,
+    metrics: Vec<MetricDataItem>,
+    error: Option<IoTextError>,
 }
 
 impl IoTextBuilder {
+    #[must_use]
     pub fn new() -> Self {
-        let mut row = IoTextDataRow::default();
-
-        let s = row.timestamp_mut();
-        s.value = ItemTypeEnum::TimeUnixMilis(0);
-
-        IoTextBuilder {
-            iotext_data_row: row,
-        }
+        Self::default()
     }
 
+    fn record(&mut self, err: IoTextError) {
+        trace!("IoTextBuilder - recorded error: {err}");
+        self.error.get_or_insert(err);
+    }
+
+    #[must_use]
     pub fn timestamp(mut self, timestamp: u64) -> Self {
-        trace!(
-            "IoTextBuilder::timestamp() - timestamp: {:?}",
-            ItemTypeEnum::TimeUnixMilis(timestamp)
-        );
-        let s = self.iotext_data_row.timestamp_mut();
-        s.value = ItemTypeEnum::TimeUnixMilis(timestamp);
+        trace!("IoTextBuilder::timestamp() - timestamp: {timestamp}");
+        self.timestamp = Some(timestamp);
         self
     }
 
+    #[must_use]
     pub fn current_timestamp(mut self) -> Self {
-        let current_timestamp = Utc::now().timestamp_millis() as u64;
-        trace!(
-            "IoTextBuilder::timestamp() - current_timestamp: {:?}",
-            ItemTypeEnum::TimeUnixMilis(current_timestamp)
-        );
-        let s = self.iotext_data_row.timestamp_mut();
-        s.value = ItemTypeEnum::TimeUnixMilis(current_timestamp);
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .and_then(|d| u64::try_from(d.as_millis()).ok());
+        trace!("IoTextBuilder::current_timestamp() - {now:?}");
+        match now {
+            Some(ts) => self.timestamp = Some(ts),
+            None => self.record(IoTextError::InvalidSystemTime),
+        }
         self
     }
 
+    #[must_use]
     pub fn device_id(mut self, device_id: &str) -> Self {
-        trace!("IoTextBuilder::device_id() - device_id: {}", device_id);
-
-        let parsed_value = match validators::Validators::validate_device_id_str(device_id) {
-            Ok(value) => value,
-            Err(err) => {
-                let err_msg = format!("IoTextBuilder::device_id() - err: {err}");
-                error!("{}", err_msg);
-                panic!("{}", err_msg)
-            }
-        };
-
-        debug!(
-            "IoTextBuilder::device_id() - device_id: {:?}",
-            ItemTypeEnum::DeviceId(String::from(parsed_value))
-        );
-
-        let s = self.iotext_data_row.device_id_mut();
-        s.value = ItemTypeEnum::DeviceId(String::from(parsed_value));
+        trace!("IoTextBuilder::device_id() - device_id: {device_id}");
+        match Validators::validate_device_id_str(device_id) {
+            Ok(value) => self.device_id = Some(value.to_string()),
+            Err(err) => self.record(err.into()),
+        }
         self
     }
 
+    #[must_use]
     pub fn add_metric(mut self, name: &str, metric_data_type_value: MetricValueType) -> Self {
-        trace!(
-            "IoTextBuilder::add_metric - name: {}, metric_data_type_value: {}",
-            name,
-            metric_data_type_value
-        );
-
-        let parsed_metric_name = match validators::Validators::validate_metric_name_str(name) {
-            Ok(value) => value,
-            Err(err) => {
-                error!("{err}");
-                panic!("{}", err)
-            }
-        };
-
-        let metrics = self.iotext_data_row.metrics_mut();
-        metrics.get_or_insert(vec![]).push(MetricDataItem {
-            name: parsed_metric_name.to_string(),
-            value: metric_data_type_value,
-        });
+        trace!("IoTextBuilder::add_metric - name: {name}, value: {metric_data_type_value}");
+        let validated = Validators::validate_metric_name_str(name)
+            .map_err(IoTextError::from)
+            .and_then(|name| {
+                if let MetricValueType::TextItemType(text) = &metric_data_type_value {
+                    Validators::validate_text_value_str(text)?;
+                }
+                Ok(name)
+            });
+        match validated {
+            Ok(name) => self.metrics.push(MetricDataItem {
+                name: name.to_string(),
+                value: metric_data_type_value,
+            }),
+            Err(err) => self.record(err),
+        }
         self
     }
 
+    #[must_use]
     pub fn add_metric_as_str(mut self, name: &str, value: &str, metric_data_type: &str) -> Self {
         trace!(
-            "IoTextBuilder::add_metric_as_str - name: {}, value: {}, metric_data_type: {}",
-            name,
-            value,
-            metric_data_type
+            "IoTextBuilder::add_metric_as_str - name: {name}, value: {value}, metric_data_type: {metric_data_type}"
         );
-
-        let parsed_metric_name = match validators::Validators::validate_metric_name_str(name) {
-            Ok(value) => value,
-            Err(err) => {
-                error!("{err}");
-                panic!("{}", err)
-            }
-        };
-
-        let metric_value = self
-            .iotext_data_row
-            .extract_metric_value_type(metric_data_type, value);
-
-        let metrics = self.iotext_data_row.metrics_mut();
-        metrics.get_or_insert(vec![]).push(MetricDataItem {
-            name: parsed_metric_name.to_string(),
-            value: metric_value,
-        });
+        let parsed = Validators::validate_metric_name_str(name)
+            .map_err(IoTextError::from)
+            .and_then(|name| {
+                Validators::validate_metric_data_type_str(metric_data_type, name)?;
+                Ok((
+                    name,
+                    MetricValueType::from_type_and_value(metric_data_type, value)?,
+                ))
+            });
+        match parsed {
+            Ok((name, value)) => self.metrics.push(MetricDataItem {
+                name: name.to_string(),
+                value,
+            }),
+            Err(err) => self.record(err),
+        }
         self
     }
 
-    pub fn build(self, add_crc: bool) -> Result<IoTextDataRow, IoTextBuilderError> {
-        trace!("IoTextBuilder::build - add_crc: {:?}", add_crc);
-
-        trace!("IoTextBuilder::build - validating timestamp...");
-
-        let default_timestamp_value =
-            ItemTypes::TIMESTAMP_MILIS.to_string() + SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP + "0";
-        if self
-            .iotext_data_row
-            .timestamp
-            .value
-            .to_string()
-            .eq(default_timestamp_value.as_str())
-        {
-            let err_msg = "IoTextBuilder::build() - 'timestamp' is required!";
-            error!("{err_msg}");
-            return Err(IoTextBuilderError::TimestampIsEmpty(
-                self.iotext_data_row.timestamp,
-            ));
+    /// # Errors
+    /// Returns the first error recorded by a setter, or
+    /// [`IoTextError::MissingTimestamp`] / [`IoTextError::MissingDeviceId`].
+    pub fn build(self, add_crc: bool) -> Result<IoTextDataRow, IoTextError> {
+        trace!("IoTextBuilder::build - add_crc: {add_crc}");
+        if let Some(err) = self.error {
+            return Err(err);
         }
 
-        trace!("IoTextBuilder::build - validating device_id...");
-
-        let default_device_id_value =
-            ItemTypes::DEVICE_ID.to_string() + SPECIAL_CHAR_DATA_TYPES_AND_CMD_CTX_SEP;
-        if self
-            .iotext_data_row
-            .device_id
-            .value
-            .to_string()
-            .eq(default_device_id_value.as_str())
-        {
-            let err_msg = "IoTextBuilder::build() - 'device_id' is required!";
-            error!("{err_msg}");
-            return Err(IoTextBuilderError::DeviceIdIsEmpty(
-                self.iotext_data_row.device_id.value.to_string(),
-            ));
-        }
+        let mut row = IoTextDataRow {
+            timestamp: Item {
+                value: ItemTypeEnum::TimeUnixMilis(
+                    self.timestamp.ok_or(IoTextError::MissingTimestamp)?,
+                ),
+            },
+            device_id: Item {
+                value: ItemTypeEnum::DeviceId(self.device_id.ok_or(IoTextError::MissingDeviceId)?),
+            },
+            metrics: if self.metrics.is_empty() {
+                None
+            } else {
+                Some(self.metrics)
+            },
+            crc16: None,
+        };
 
         if add_crc {
-            trace!("IoTextBuilder::build - processing add_crc...");
-
-            //TODO: need to add more time & compute optimal solution here
-            let data_obj = IoTextDataRow::default();
-            let str_from_iotext_data: String =
-                data_obj.dump_iotext_to_str(&self.iotext_data_row, add_crc);
-
-            trace!(
-                "IoTextBuilder::build - add_crc prepared: {:?}",
-                str_from_iotext_data
-            );
-
-            return Ok(data_obj.parse_iotext_str(&str_from_iotext_data));
+            row.crc16 = Some(Item {
+                value: ItemTypeEnum::Crc(row.compute_crc16()),
+            });
         }
-
-        Ok(self.iotext_data_row)
+        Ok(row)
     }
 }
