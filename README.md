@@ -6,6 +6,7 @@
 [![docs.rs](https://img.shields.io/docsrs/iotext_rs)](https://docs.rs/iotext_rs)
 ![MSRV](https://img.shields.io/badge/MSRV-1.85-blue)
 ![no_std](https://img.shields.io/badge/no__std-alloc-green)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=bieli_IoText-rs&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=bieli_IoText-rs)
 
 `IoText` is an IoT and IIoT text-based data protocol, simpler than JSON for time-series data from measurements.
 
