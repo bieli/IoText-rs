@@ -39,9 +39,11 @@ jobs:
           path: fuzz/corpus/${{ matrix.target }}
           key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
           restore-keys: fuzz-corpus-${{ matrix.target }}-
+      # The prebuilt cargo-fuzz is a musl binary and defaults to a musl target,
+      # where AddressSanitizer cannot run; select the GNU target explicitly.
       - name: Fuzz
         run: >
-          cargo fuzz run ${{ matrix.target }} --
+          cargo fuzz run --target x86_64-unknown-linux-gnu ${{ matrix.target }} --
           -max_total_time=${{ github.event.inputs.seconds || '900' }} ${{ matrix.args }}
       - uses: actions/upload-artifact@v4
         if: failure()

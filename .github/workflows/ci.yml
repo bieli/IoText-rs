@@ -156,12 +156,14 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: fuzz
+      # The prebuilt cargo-fuzz is a musl binary and defaults to a musl target,
+      # where AddressSanitizer cannot run; select the GNU target explicitly.
       - name: Replay regressions
-        run: cargo fuzz run parse fuzz/regressions/parse -- -runs=0
+        run: cargo fuzz run --target x86_64-unknown-linux-gnu parse fuzz/regressions/parse -- -runs=0
       - name: Fuzz parse
-        run: cargo fuzz run parse -- -max_total_time=60 -dict=fuzz/iotext.dict -max_len=512
+        run: cargo fuzz run --target x86_64-unknown-linux-gnu parse -- -max_total_time=60 -dict=fuzz/iotext.dict -max_len=512
       - name: Fuzz builder
-        run: cargo fuzz run builder -- -max_total_time=60 -max_len=2048
+        run: cargo fuzz run --target x86_64-unknown-linux-gnu builder -- -max_total_time=60 -max_len=2048
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
